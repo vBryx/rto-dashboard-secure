@@ -7,6 +7,12 @@ ENV/
 __pycache__/
 *.pyc
 
+# SECURITY: Environment variables (NEVER commit!)
+.env
+.env.local
+.env.production
+config_private.json
+
 # Data files (privacy - sensitive patient data)
 raw_query_data*.xlsx
 temp_delete_*.tmp

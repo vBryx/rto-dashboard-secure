@@ -1,11 +1,11 @@
 {
   "admin": {
-    "password": "Homoud321@",
+    "password": "USE_ENVIRONMENT_VARIABLE",
     "session_timeout_minutes": 30
   },
   "onedrive": {
-    "excel_url": "https://1drv.ms/x/c/dd60e30ebe35826f/EaO9sdYsCbdOo1S4cfWJtt8BSsia7yGKu4pXbI-PioSxvA",
-    "download_url": "https://1drv.ms/x/c/dd60e30ebe35826f/EaO9sdYsCbdOo1S4cfWJtt8BSsia7yGKu4pXbI-PioSxvA?download=1"
+    "excel_url": "USE_ENVIRONMENT_VARIABLE",
+    "download_url": "USE_ENVIRONMENT_VARIABLE"
   },
   "refresh": {
     "cooldown_seconds": 10

@@ -9,6 +9,21 @@ from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 from process_raw_data import RawDataProcessor
 
+# Load environment variables from .env file for local development
+def load_env_file():
+    """Load environment variables from .env file if it exists"""
+    env_path = Path('.env')
+    if env_path.exists():
+        with open(env_path, 'r', encoding='utf-8') as f:
+            for line in f:
+                line = line.strip()
+                if line and not line.startswith('#') and '=' in line:
+                    key, value = line.split('=', 1)
+                    os.environ.setdefault(key.strip(), value.strip())
+
+# Load environment variables for local development
+load_env_file()
+
 # Production configuration
 PORT = int(os.environ.get('PORT', 8000))
 HOST = os.environ.get('HOST', '0.0.0.0')  # Use 0.0.0.0 for cloud deployment
@@ -46,17 +61,23 @@ def load_dashboard_data():
         }
 
 def load_config():
-    """Load configuration from config.json"""
+    """Load configuration with environment variables for security"""
     try:
         with open('config.json', 'r', encoding='utf-8') as f:
-            return json.load(f)
+            config = json.load(f)
     except FileNotFoundError:
         print("Warning: config.json not found. Using defaults.")
-        return {
-            "admin": {"password": "admin123", "session_timeout_minutes": 30},
-            "onedrive": {"download_url": ""},
+        config = {
+            "admin": {"password": "USE_ENVIRONMENT_VARIABLE", "session_timeout_minutes": 30},
+            "onedrive": {"download_url": "USE_ENVIRONMENT_VARIABLE"},
             "refresh": {"cooldown_seconds": 10}
         }
+    
+    # Override with environment variables for security
+    config['admin']['password'] = os.environ.get('ADMIN_PASSWORD', config['admin']['password'])
+    config['onedrive']['download_url'] = os.environ.get('ONEDRIVE_DOWNLOAD_URL', config['onedrive']['download_url'])
+    
+    return config
 
 def download_from_onedrive(url):
     """Download Excel file from OneDrive"""
