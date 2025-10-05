@@ -80,6 +80,8 @@
             font-size: 48px;
             font-weight: bold;
             color: #2c3e50;
+            min-width: 200px;
+            text-align: center;
         }
         
         .population-percentage {
@@ -142,6 +144,8 @@
         .stat-value {
             text-align: right;
             font-weight: bold;
+            min-width: 80px;
+            display: inline-block;
         }
         
         .stat-percentage {
@@ -190,6 +194,12 @@
             font-weight: bold;
             color: #2c3e50;
             margin-bottom: 5px;
+            min-width: 120px;
+            text-align: center;
+            min-height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
         
         .metric-label {
@@ -580,12 +590,25 @@
                         const enrollRate = overview.total_arrived > 0 ? 
                             ((overview.total_enrolled / overview.total_arrived) * 100).toFixed(1) : '98.6';
                         
-                        document.getElementById('comm-rate').textContent = commRate + '%';
-                        document.getElementById('accept-rate').textContent = acceptRate + '%';
-                        document.getElementById('arrive-rate').textContent = arriveRate + '%';
-                        document.getElementById('enroll-rate').textContent = enrollRate + '%';
+                        // Update overview percentages with simple colors
+                        const commRateElement = document.getElementById('comm-rate');
+                        const acceptRateElement = document.getElementById('accept-rate');
+                        const arriveRateElement = document.getElementById('arrive-rate');
+                        const enrollRateElement = document.getElementById('enroll-rate');
                         
-                        // Update sectors tab values as well
+                        commRateElement.textContent = commRate + '%';
+                        commRateElement.style.color = getPercentageColor(parseFloat(commRate));
+                        
+                        acceptRateElement.textContent = acceptRate + '%';
+                        acceptRateElement.style.color = getPercentageColor(parseFloat(acceptRate));
+                        
+                        arriveRateElement.textContent = arriveRate + '%';
+                        arriveRateElement.style.color = getPercentageColor(parseFloat(arriveRate));
+                        
+                        enrollRateElement.textContent = enrollRate + '%';
+                        enrollRateElement.style.color = getPercentageColor(parseFloat(enrollRate));
+                        
+                        // Update sectors tab values as well (NO COLORS - just text)
                         document.getElementById('sectors-total-population').textContent = overview.total_population?.toLocaleString() || '52,308';
                         document.getElementById('sectors-comm-rate').textContent = commRate + '%';
                         
@@ -613,19 +636,11 @@
         // Auto-refresh every 30 seconds for seamless updates
         setInterval(loadDashboardData, 30000);
         
-        function getPercentageColor(percentage, type) {
-            if (type === 'positive') {
-                // For metrics where higher is better (green for high, red for low)
-                if (percentage >= 70) return '#27ae60'; // Green
-                if (percentage >= 40) return '#f39c12'; // Orange
-                return '#e74c3c'; // Red
-            } else if (type === 'negative') {
-                // For metrics where lower is better (red for high, green for low)
-                if (percentage <= 10) return '#27ae60'; // Green
-                if (percentage <= 30) return '#f39c12'; // Orange
-                return '#e74c3c'; // Red
-            }
-            return '#3498db'; // Default blue for neutral metrics
+        function getPercentageColor(percentage) {
+            // Simple color logic ONLY for overview tab
+            if (percentage >= 70) return '#27ae60'; // Green
+            if (percentage >= 40) return '#f39c12'; // Orange
+            return '#e74c3c'; // Red
         }
             
         function updateSectorData(sectors) {
@@ -668,65 +683,56 @@
                         statValues[9].textContent = totals.enrolled.toLocaleString();
                     }
                     
-                    // Update percentages with appropriate colors
+                    // Update percentages - SIMPLE ORIGINAL LOGIC
                     if (statPercentages.length >= 9) {
-                        // Communication rate (higher is better)
+                        // Communication rate
                         const commPercent = totals.population > 0 ? 
                             Math.round((totals.communicated / totals.population) * 100) : 0;
                         statPercentages[1].textContent = commPercent + '%';
-                        statPercentages[1].style.color = getPercentageColor(commPercent, 'positive');
                         
-                        // Acceptance rate (higher is better)
+                        // Acceptance rate
                         const acceptPercent = totals.communicated > 0 ? 
                             Math.round((totals.accepted / totals.communicated) * 100) : 0;
                         statPercentages[2].textContent = acceptPercent + '%';
-                        statPercentages[2].style.color = getPercentageColor(acceptPercent, 'positive');
                         
-                        // Refusal rate (lower is better)
+                        // Refusal rate
                         const refusePercent = totals.communicated > 0 ? 
                             Math.round((totals.refused / totals.communicated) * 100) : 0;
                         statPercentages[3].textContent = refusePercent + '%';
-                        statPercentages[3].style.color = getPercentageColor(refusePercent, 'negative');
                         
-                        // Wrong number rate (lower is better)
+                        // Wrong number rate
                         const wrongPercent = totals.communicated > 0 ? 
                             Math.round((totals.wrongNumber / totals.communicated) * 100) : 0;
                         statPercentages[4].textContent = wrongPercent + '%';
-                        statPercentages[4].style.color = getPercentageColor(wrongPercent, 'negative');
                         
-                        // No response rate (lower is better)
+                        // No response rate
                         const noResponsePercent = totals.communicated > 0 ? 
                             Math.round((totals.noResponse / totals.communicated) * 100) : 0;
                         statPercentages[5].textContent = noResponsePercent + '%';
-                        statPercentages[5].style.color = getPercentageColor(noResponsePercent, 'negative');
                         
                         const totalVisits = totals.inPerson + totals.virtual;
-                        // In-person visit percentage (neutral)
+                        // In-person visit percentage
                         const inPersonPercent = totalVisits > 0 ? 
                             Math.round((totals.inPerson / totalVisits) * 100) : 0;
                         statPercentages[6].textContent = inPersonPercent + '%';
-                        statPercentages[6].style.color = '#3498db';
                         
-                        // Virtual visit percentage (neutral)
+                        // Virtual visit percentage
                         const virtualPercent = totalVisits > 0 ? 
                             Math.round((totals.virtual / totalVisits) * 100) : 0;
                         statPercentages[7].textContent = virtualPercent + '%';
-                        statPercentages[7].style.color = '#3498db';
                         
-                        // Arrival rate (higher is better)
+                        // Arrival rate
                         const arrivalPercent = totals.accepted > 0 ? 
                             Math.round((totals.arrived / totals.accepted) * 100) : 0;
                         statPercentages[8].textContent = arrivalPercent + '%';
-                        statPercentages[8].style.color = getPercentageColor(arrivalPercent, 'positive');
                         
-                        // Special handling for enrollment percentage (index 9 doesn't exist in statPercentages)
+                        // Enrollment percentage
                         const enrollPercent = totals.arrived > 0 ? 
                             Math.round((totals.enrolled / totals.arrived) * 100) : 0;
                         // Find and update enrollment percentage if it exists
                         const enrollStat = card.querySelector('.stat-item:last-child .stat-percentage');
                         if (enrollStat) {
                             enrollStat.textContent = enrollPercent + '%';
-                            enrollStat.style.color = getPercentageColor(enrollPercent, 'positive');
                         }
                     }
                 }

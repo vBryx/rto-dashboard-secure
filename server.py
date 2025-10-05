@@ -5,6 +5,7 @@ import json
 import requests
 import uuid
 import time
+import threading
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 from process_raw_data import RawDataProcessor
@@ -547,6 +548,52 @@ def cleanup_temp_files():
     except Exception as e:
         print(f"Cleanup warning: {e}")
 
+def auto_refresh_data():
+    """Auto-refresh data from OneDrive every hour"""
+    global last_refresh_time
+    
+    while True:
+        try:
+            # Wait for 1 hour (3600 seconds)
+            time.sleep(3600)
+            
+            config = load_config()
+            download_url = config['onedrive'].get('download_url', '')
+            
+            if not download_url or download_url == 'USE_ENVIRONMENT_VARIABLE':
+                print("⚠️ Auto-refresh skipped: OneDrive URL not configured")
+                continue
+                
+            print("🔄 Starting automatic hourly data refresh...")
+            
+            # Download from OneDrive
+            download_success, download_result = download_from_onedrive(download_url)
+            
+            if download_success:
+                # Process data
+                processor = RawDataProcessor()
+                processor.process_raw_data()
+                
+                # Update refresh time
+                last_refresh_time = time.time()
+                
+                print(f"✅ Automatic refresh completed successfully at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+                
+                # Clean up Excel file
+                try:
+                    if os.path.exists('raw_query_data.xlsx'):
+                        os.remove('raw_query_data.xlsx')
+                        print("✅ Auto-refresh: Excel file cleaned up")
+                except Exception as e:
+                    print(f"⚠️ Auto-refresh cleanup warning: {e}")
+                    
+            else:
+                print(f"❌ Automatic refresh failed: {download_result}")
+                
+        except Exception as e:
+            print(f"❌ Auto-refresh error: {e}")
+            # Continue the loop even if there's an error
+
 def start_dashboard_server(port=8000):
     """Start the dashboard web server"""
     try:
@@ -613,6 +660,11 @@ def start_dashboard_server(port=8000):
                 print("Will rely on OneDrive for data updates.")
         else:
             print("No local data file found. Will rely on OneDrive for data.")
+        
+        # Start auto-refresh thread for hourly OneDrive sync
+        auto_refresh_thread = threading.Thread(target=auto_refresh_data, daemon=True)
+        auto_refresh_thread.start()
+        print("🔄 Auto-refresh thread started - will sync OneDrive data every hour")
         
         # Start web server
         with socketserver.TCPServer(("0.0.0.0", port), DashboardHandler) as httpd:
