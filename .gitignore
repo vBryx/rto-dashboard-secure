@@ -18,7 +18,6 @@ raw_query_data*.xlsx
 temp_delete_*.tmp
 dashboard_data.json
 summary_report.txt
-data/
 
 # OS files
 .DS_Store
