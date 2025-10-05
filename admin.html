@@ -1,0 +1,449 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MHC RTO Dashboard - Admin Panel</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #f5f5f5;
+            color: #333;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            min-height: 100vh;
+        }
+        
+        .header {
+            background: #2c3e50;
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+        
+        .header p {
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        
+        .main-content {
+            padding: 30px;
+        }
+        
+        .login-form {
+            max-width: 400px;
+            margin: 100px auto;
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .login-form h2 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #2c3e50;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        
+        .form-group input {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #bdc3c7;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        
+        .form-group input:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 12px;
+            background: #3498db;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        
+        .btn:hover {
+            background: #2980b9;
+        }
+        
+        .btn:disabled {
+            background: #bdc3c7;
+            cursor: not-allowed;
+        }
+        
+        .admin-panel {
+            display: none;
+        }
+        
+        .status-card {
+            background: #ecf0f1;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .status-card h3 {
+            color: #2c3e50;
+            margin-bottom: 10px;
+        }
+        
+        .status-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+        }
+        
+        .refresh-section {
+            background: white;
+            border: 2px solid #3498db;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .refresh-section h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+        
+        .refresh-btn {
+            background: #27ae60;
+            margin-bottom: 15px;
+        }
+        
+        .refresh-btn:hover {
+            background: #229954;
+        }
+        
+        .log-section {
+            background: #2c3e50;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: monospace;
+            height: 300px;
+            overflow-y: auto;
+        }
+        
+        .log-section h3 {
+            margin-bottom: 15px;
+        }
+        
+        .log-entry {
+            margin-bottom: 5px;
+            padding: 5px 0;
+            border-bottom: 1px solid #34495e;
+        }
+        
+        .log-timestamp {
+            color: #3498db;
+        }
+        
+        .log-success {
+            color: #27ae60;
+        }
+        
+        .log-error {
+            color: #e74c3c;
+        }
+        
+        .logout-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: #e74c3c;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .logout-btn:hover {
+            background: #c0392b;
+        }
+        
+        .error-message {
+            color: #e74c3c;
+            text-align: center;
+            margin-top: 10px;
+        }
+        
+        .cooldown-timer {
+            color: #f39c12;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1><i class="fas fa-user-shield"></i> Admin Panel</h1>
+            <p>MHC RTO Dashboard Administration</p>
+        </div>
+        
+        <!-- Login Form -->
+        <div id="loginForm" class="login-form">
+            <h2>Admin Login</h2>
+            <form id="loginFormElement">
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" name="password" required>
+                </div>
+                <button type="submit" class="btn">Login</button>
+                <div id="loginError" class="error-message"></div>
+            </form>
+        </div>
+        
+        <!-- Admin Panel -->
+        <div id="adminPanel" class="admin-panel">
+            <button class="logout-btn" onclick="logout()">
+                <i class="fas fa-sign-out-alt"></i> Logout
+            </button>
+            
+            <div class="main-content">
+                <!-- Status Section -->
+                <div class="status-card">
+                    <h3><i class="fas fa-info-circle"></i> Current Status</h3>
+                    <div class="status-item">
+                        <span>Last Data Update:</span>
+                        <span id="lastUpdate">Loading...</span>
+                    </div>
+                    <div class="status-item">
+                        <span>Total Records:</span>
+                        <span id="totalRecords">Loading...</span>
+                    </div>
+                    <div class="status-item">
+                        <span>OneDrive Connection:</span>
+                        <span id="onedriveStatus">Unknown</span>
+                    </div>
+                </div>
+                
+                <!-- Refresh Section -->
+                <div class="refresh-section">
+                    <h3><i class="fas fa-sync-alt"></i> Data Refresh</h3>
+                    <button id="refreshBtn" class="btn refresh-btn" onclick="refreshData()">
+                        <i class="fas fa-download"></i> Refresh Data from OneDrive
+                    </button>
+                    <div id="refreshStatus"></div>
+                </div>
+                
+                <!-- Logs Section -->
+                <div class="log-section">
+                    <h3><i class="fas fa-terminal"></i> Activity Log</h3>
+                    <div id="logContainer">
+                        <div class="log-entry">
+                            <span class="log-timestamp">[System]</span> 
+                            <span class="log-success">Admin panel initialized</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let authToken = null;
+        let refreshCooldown = 0;
+        let cooldownTimer = null;
+        
+        // Check if already authenticated
+        authToken = localStorage.getItem('adminToken');
+        if (authToken) {
+            showAdminPanel();
+        }
+        
+        // Login form handler
+        document.getElementById('loginFormElement').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const password = document.getElementById('password').value;
+            
+            try {
+                const response = await fetch('/admin/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ password })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    authToken = result.token;
+                    localStorage.setItem('adminToken', authToken);
+                    showAdminPanel();
+                } else {
+                    document.getElementById('loginError').textContent = result.message || 'Invalid password';
+                }
+            } catch (error) {
+                document.getElementById('loginError').textContent = 'Connection error';
+            }
+        });
+        
+        function showAdminPanel() {
+            document.getElementById('loginForm').style.display = 'none';
+            document.getElementById('adminPanel').style.display = 'block';
+            loadStatus();
+            startStatusPolling();
+        }
+        
+        function logout() {
+            localStorage.removeItem('adminToken');
+            authToken = null;
+            document.getElementById('loginForm').style.display = 'block';
+            document.getElementById('adminPanel').style.display = 'none';
+            document.getElementById('password').value = '';
+        }
+        
+        async function loadStatus() {
+            try {
+                const response = await fetch('/admin/status', {
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+                
+                const status = await response.json();
+                
+                if (status.success) {
+                    document.getElementById('lastUpdate').textContent = status.data.last_update || 'Never';
+                    document.getElementById('totalRecords').textContent = status.data.total_records || '0';
+                    document.getElementById('onedriveStatus').textContent = status.data.onedrive_accessible ? 'Connected' : 'Error';
+                }
+            } catch (error) {
+                addLog('Failed to load status', 'error');
+            }
+        }
+        
+        async function refreshData() {
+            if (refreshCooldown > 0) {
+                addLog(`Please wait ${refreshCooldown} seconds before refreshing again`, 'error');
+                return;
+            }
+            
+            const refreshBtn = document.getElementById('refreshBtn');
+            refreshBtn.disabled = true;
+            refreshBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processing...';
+            
+            addLog('Starting data refresh from OneDrive...', 'info');
+            
+            try {
+                const response = await fetch('/admin/refresh', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    addLog('Data refresh completed successfully', 'success');
+                    addLog(`Downloaded ${result.file_size || 'unknown'} bytes from OneDrive`, 'info');
+                    addLog(`Processed ${result.records_processed || 0} records`, 'info');
+                    loadStatus();
+                    startCooldown();
+                } else {
+                    addLog(`Refresh failed: ${result.message}`, 'error');
+                }
+            } catch (error) {
+                addLog('Network error during refresh', 'error');
+            } finally {
+                refreshBtn.disabled = false;
+                refreshBtn.innerHTML = '<i class="fas fa-download"></i> Refresh Data from OneDrive';
+            }
+        }
+        
+        function startCooldown() {
+            refreshCooldown = 10; // 10 seconds as requested
+            updateCooldownDisplay();
+            
+            cooldownTimer = setInterval(() => {
+                refreshCooldown--;
+                updateCooldownDisplay();
+                
+                if (refreshCooldown <= 0) {
+                    clearInterval(cooldownTimer);
+                    document.getElementById('refreshStatus').innerHTML = '';
+                }
+            }, 1000);
+        }
+        
+        function updateCooldownDisplay() {
+            if (refreshCooldown > 0) {
+                document.getElementById('refreshStatus').innerHTML = 
+                    `<span class="cooldown-timer">Next refresh available in ${refreshCooldown} seconds</span>`;
+            }
+        }
+        
+        function addLog(message, type = 'info') {
+            const logContainer = document.getElementById('logContainer');
+            const timestamp = new Date().toLocaleTimeString();
+            const logClass = type === 'error' ? 'log-error' : type === 'success' ? 'log-success' : '';
+            
+            const logEntry = document.createElement('div');
+            logEntry.className = 'log-entry';
+            logEntry.innerHTML = `
+                <span class="log-timestamp">[${timestamp}]</span> 
+                <span class="${logClass}">${message}</span>
+            `;
+            
+            logContainer.appendChild(logEntry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+            
+            // Keep only last 50 entries
+            while (logContainer.children.length > 50) {
+                logContainer.removeChild(logContainer.firstChild);
+            }
+        }
+        
+        function startStatusPolling() {
+            // Refresh status every 30 seconds
+            setInterval(loadStatus, 30000);
+        }
+        
+        // Handle session expiry
+        window.addEventListener('beforeunload', () => {
+            if (cooldownTimer) {
+                clearInterval(cooldownTimer);
+            }
+        });
+    </script>
+</body>
+</html>

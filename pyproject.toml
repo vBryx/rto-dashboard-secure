@@ -1,0 +1,23 @@
+[project]
+name = "mhc-rto-dashboard"
+version = "1.0.0"
+description = "MHC RTO Dashboard with OneDrive integration and admin panel"
+authors = [
+    {name = "Dr. Hamoud Almatrafi"}
+]
+dependencies = [
+    "pandas>=2.0.0",
+    "openpyxl>=3.1.0", 
+    "requests>=2.28.0"
+]
+requires-python = ">=3.8"
+
+[project.scripts]
+dashboard = "server:start_dashboard_server"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.uv]
+dev-dependencies = []

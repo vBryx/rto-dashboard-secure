@@ -1,0 +1,13 @@
+{
+  "admin": {
+    "password": "Homoud321@",
+    "session_timeout_minutes": 30
+  },
+  "onedrive": {
+    "excel_url": "https://1drv.ms/x/c/dd60e30ebe35826f/EaO9sdYsCbdOo1S4cfWJtt8BSsia7yGKu4pXbI-PioSxvA",
+    "download_url": "https://1drv.ms/x/c/dd60e30ebe35826f/EaO9sdYsCbdOo1S4cfWJtt8BSsia7yGKu4pXbI-PioSxvA?download=1"
+  },
+  "refresh": {
+    "cooldown_seconds": 10
+  }
+}

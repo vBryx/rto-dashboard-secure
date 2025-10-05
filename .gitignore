@@ -1,0 +1,32 @@
+# Virtual environment (DO NOT UPLOAD)
+.venv/
+venv/
+ENV/
+
+# Python cache
+__pycache__/
+*.pyc
+
+# Data files (privacy - sensitive patient data)
+raw_query_data*.xlsx
+temp_delete_*.tmp
+data/dashboard_data.json
+data/summary_report.txt
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Local development only
+start_dashboard.bat
+update_data.bat
+
+# IDE
+.vscode/
+.idea/
+
+# Logs
+*.log
+
+# Environment variables
+.env
