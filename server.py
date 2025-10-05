@@ -554,8 +554,8 @@ def auto_refresh_data():
     
     while True:
         try:
-            # Wait for 2 minutes (120 seconds) - TESTING MODE
-            time.sleep(120)
+            # Wait for 1 hour (3600 seconds)
+            time.sleep(3600)
             
             config = load_config()
             download_url = config['onedrive'].get('download_url', '')
@@ -660,6 +660,35 @@ def start_dashboard_server(port=8000):
                 print("Will rely on OneDrive for data updates.")
         else:
             print("No local data file found. Will rely on OneDrive for data.")
+        
+        # Perform initial OneDrive sync on server startup
+        print("🔄 Performing initial OneDrive data sync...")
+        try:
+            config = load_config()
+            download_url = config['onedrive'].get('download_url', '')
+            
+            if download_url and download_url != 'USE_ENVIRONMENT_VARIABLE':
+                download_success, download_result = download_from_onedrive(download_url)
+                
+                if download_success:
+                    # Process data immediately
+                    processor = RawDataProcessor()
+                    processor.process_raw_data()
+                    print("✅ Initial OneDrive sync completed successfully")
+                    
+                    # Clean up Excel file
+                    try:
+                        if os.path.exists('raw_query_data.xlsx'):
+                            os.remove('raw_query_data.xlsx')
+                            print("✅ Initial sync: Excel file cleaned up")
+                    except Exception as e:
+                        print(f"⚠️ Initial sync cleanup warning: {e}")
+                else:
+                    print(f"⚠️ Initial OneDrive sync failed: {download_result}")
+            else:
+                print("⚠️ Initial sync skipped: OneDrive URL not configured")
+        except Exception as e:
+            print(f"⚠️ Initial sync error: {e}")
         
         # Start auto-refresh thread for hourly OneDrive sync
         auto_refresh_thread = threading.Thread(target=auto_refresh_data, daemon=True)
