@@ -46,6 +46,10 @@ class RawDataProcessor:
         # Calculate overview metrics
         dashboard_data["overview"] = self.calculate_overview_metrics(dashboard_data["sectors"])
         
+        # Ensure data directory exists
+        import os
+        os.makedirs('data', exist_ok=True)
+        
         # Save processed data
         with open('data/dashboard_data.json', 'w', encoding='utf-8') as f:
             json.dump(dashboard_data, f, indent=2, ensure_ascii=False)
