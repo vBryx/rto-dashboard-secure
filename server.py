@@ -12,14 +12,17 @@ from process_raw_data import RawDataProcessor
 # Load environment variables from .env file for local development
 def load_env_file():
     """Load environment variables from .env file if it exists"""
-    env_path = Path('.env')
-    if env_path.exists():
-        with open(env_path, 'r', encoding='utf-8') as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith('#') and '=' in line:
-                    key, value = line.split('=', 1)
-                    os.environ.setdefault(key.strip(), value.strip())
+    try:
+        env_path = Path('.env')
+        if env_path.exists():
+            with open(env_path, 'r', encoding='utf-8') as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith('#') and '=' in line:
+                        key, value = line.split('=', 1)
+                        os.environ.setdefault(key.strip(), value.strip())
+    except Exception as e:
+        print(f"Warning: Could not load .env file: {e}")
 
 # Load environment variables for local development
 load_env_file()
@@ -74,8 +77,18 @@ def load_config():
         }
     
     # Override with environment variables for security
-    config['admin']['password'] = os.environ.get('ADMIN_PASSWORD', config['admin']['password'])
-    config['onedrive']['download_url'] = os.environ.get('ONEDRIVE_DOWNLOAD_URL', config['onedrive']['download_url'])
+    admin_password = os.environ.get('ADMIN_PASSWORD')
+    onedrive_url = os.environ.get('ONEDRIVE_DOWNLOAD_URL')
+    
+    if admin_password and admin_password != 'USE_ENVIRONMENT_VARIABLE':
+        config['admin']['password'] = admin_password
+    else:
+        print("WARNING: ADMIN_PASSWORD environment variable not set!")
+        
+    if onedrive_url and onedrive_url != 'USE_ENVIRONMENT_VARIABLE':
+        config['onedrive']['download_url'] = onedrive_url
+    else:
+        print("WARNING: ONEDRIVE_DOWNLOAD_URL environment variable not set!")
     
     return config
 
