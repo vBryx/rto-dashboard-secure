@@ -150,6 +150,111 @@
             background: #229954;
         }
         
+        .auto-refresh-section {
+            background: white;
+            border: 2px solid #9b59b6;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        
+        .auto-refresh-section h3 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+        }
+        
+        .auto-refresh-controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .control-group {
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .control-group label {
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #2c3e50;
+        }
+        
+        .toggle-switch {
+            position: relative;
+            display: inline-block;
+            width: 60px;
+            height: 34px;
+        }
+        
+        .toggle-switch input {
+            opacity: 0;
+            width: 0;
+            height: 0;
+        }
+        
+        .slider {
+            position: absolute;
+            cursor: pointer;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: #ccc;
+            transition: .4s;
+            border-radius: 34px;
+        }
+        
+        .slider:before {
+            position: absolute;
+            content: "";
+            height: 26px;
+            width: 26px;
+            left: 4px;
+            bottom: 4px;
+            background-color: white;
+            transition: .4s;
+            border-radius: 50%;
+        }
+        
+        input:checked + .slider {
+            background-color: #9b59b6;
+        }
+        
+        input:checked + .slider:before {
+            transform: translateX(26px);
+        }
+        
+        .interval-input {
+            padding: 8px;
+            border: 2px solid #bdc3c7;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .interval-input:focus {
+            outline: none;
+            border-color: #9b59b6;
+        }
+        
+        .auto-refresh-status {
+            padding: 10px;
+            background: #ecf0f1;
+            border-radius: 4px;
+            margin-top: 10px;
+            font-size: 14px;
+        }
+        
+        .save-settings-btn {
+            background: #9b59b6;
+            margin-top: 15px;
+        }
+        
+        .save-settings-btn:hover {
+            background: #8e44ad;
+        }
+        
         .log-section {
             background: #2c3e50;
             color: white;
@@ -256,11 +361,35 @@
                 
                 <!-- Refresh Section -->
                 <div class="refresh-section">
-                    <h3><i class="fas fa-sync-alt"></i> Data Refresh</h3>
+                    <h3><i class="fas fa-sync-alt"></i> Manual Data Refresh</h3>
                     <button id="refreshBtn" class="btn refresh-btn" onclick="refreshData()">
                         <i class="fas fa-download"></i> Refresh Data from OneDrive
                     </button>
                     <div id="refreshStatus"></div>
+                </div>
+                
+                <!-- Auto-Refresh Settings Section -->
+                <div class="auto-refresh-section">
+                    <h3><i class="fas fa-clock"></i> Auto-Refresh Settings</h3>
+                    <div class="auto-refresh-controls">
+                        <div class="control-group">
+                            <label>Enable Auto-Refresh:</label>
+                            <label class="toggle-switch">
+                                <input type="checkbox" id="autoRefreshEnabled" onchange="toggleAutoRefresh()">
+                                <span class="slider"></span>
+                            </label>
+                        </div>
+                        <div class="control-group">
+                            <label>Refresh Interval (minutes):</label>
+                            <input type="number" id="refreshInterval" class="interval-input" min="5" max="1440" value="60" onchange="updateInterval()">
+                        </div>
+                    </div>
+                    <button id="saveSettingsBtn" class="btn save-settings-btn" onclick="saveAutoRefreshSettings()">
+                        <i class="fas fa-save"></i> Save Settings
+                    </button>
+                    <div id="autoRefreshStatus" class="auto-refresh-status">
+                        Auto-refresh is currently disabled. Enable it to automatically sync data at regular intervals.
+                    </div>
                 </div>
                 
                 <!-- Logs Section -->
@@ -437,6 +566,121 @@
             // Refresh status every 30 seconds
             setInterval(loadStatus, 30000);
         }
+        
+        // Auto-refresh management functions
+        async function loadAutoRefreshSettings() {
+            try {
+                const response = await fetch('/admin/auto-refresh-settings', {
+                    headers: {
+                        'Authorization': `Bearer ${sessionToken}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const settings = await response.json();
+                    document.getElementById('autoRefreshEnabled').checked = settings.enabled;
+                    document.getElementById('refreshInterval').value = settings.interval_minutes;
+                    updateAutoRefreshStatus(settings);
+                } else {
+                    addLog('Failed to load auto-refresh settings', 'error');
+                }
+            } catch (error) {
+                addLog('Error loading auto-refresh settings', 'error');
+            }
+        }
+        
+        function toggleAutoRefresh() {
+            const enabled = document.getElementById('autoRefreshEnabled').checked;
+            const interval = parseInt(document.getElementById('refreshInterval').value);
+            
+            updateAutoRefreshStatus({
+                enabled: enabled,
+                interval_minutes: interval,
+                next_refresh: enabled ? new Date(Date.now() + interval * 60000).toLocaleTimeString() : null
+            });
+        }
+        
+        function updateInterval() {
+            const interval = parseInt(document.getElementById('refreshInterval').value);
+            if (interval < 5) {
+                document.getElementById('refreshInterval').value = 5;
+                addLog('Minimum interval is 5 minutes', 'error');
+                return;
+            }
+            if (interval > 1440) {
+                document.getElementById('refreshInterval').value = 1440;
+                addLog('Maximum interval is 24 hours (1440 minutes)', 'error');
+                return;
+            }
+            
+            toggleAutoRefresh(); // Update status display
+        }
+        
+        async function saveAutoRefreshSettings() {
+            const enabled = document.getElementById('autoRefreshEnabled').checked;
+            const interval = parseInt(document.getElementById('refreshInterval').value);
+            
+            const saveBtn = document.getElementById('saveSettingsBtn');
+            saveBtn.disabled = true;
+            saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+            
+            try {
+                const response = await fetch('/admin/auto-refresh-settings', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${sessionToken}`
+                    },
+                    body: JSON.stringify({
+                        enabled: enabled,
+                        interval_minutes: interval
+                    })
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    addLog(`Auto-refresh settings saved: ${enabled ? 'Enabled' : 'Disabled'}, Interval: ${interval} minutes`, 'success');
+                    updateAutoRefreshStatus(result.settings);
+                } else {
+                    addLog(`Failed to save settings: ${result.message}`, 'error');
+                }
+            } catch (error) {
+                addLog('Error saving auto-refresh settings', 'error');
+            } finally {
+                saveBtn.disabled = false;
+                saveBtn.innerHTML = '<i class="fas fa-save"></i> Save Settings';
+            }
+        }
+        
+        function updateAutoRefreshStatus(settings) {
+            const statusDiv = document.getElementById('autoRefreshStatus');
+            
+            if (settings.enabled) {
+                const nextRefresh = settings.next_refresh || 'calculating...';
+                statusDiv.innerHTML = `
+                    <strong>Status:</strong> Auto-refresh is <span style="color: #27ae60;">ENABLED</span><br>
+                    <strong>Interval:</strong> Every ${settings.interval_minutes} minutes<br>
+                    <strong>Next refresh:</strong> ${nextRefresh}
+                `;
+                statusDiv.style.background = '#d5f4e6';
+                statusDiv.style.border = '1px solid #27ae60';
+            } else {
+                statusDiv.innerHTML = `
+                    <strong>Status:</strong> Auto-refresh is <span style="color: #e74c3c;">DISABLED</span><br>
+                    Enable auto-refresh to automatically sync data at regular intervals.
+                `;
+                statusDiv.style.background = '#fadbd8';
+                statusDiv.style.border = '1px solid #e74c3c';
+            }
+        }
+        
+        // Load auto-refresh settings on page load
+        window.addEventListener('load', () => {
+            if (sessionToken) {
+                loadAutoRefreshSettings();
+            }
+        });
         
         // Handle session expiry
         window.addEventListener('beforeunload', () => {

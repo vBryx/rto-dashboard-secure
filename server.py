@@ -37,6 +37,14 @@ admin_sessions = {}
 last_refresh_time = 0
 dashboard_data = {}
 
+# Auto-refresh settings
+auto_refresh_settings = {
+    "enabled": True,
+    "interval_minutes": 60,
+    "thread": None,
+    "stop_event": None
+}
+
 def load_dashboard_data():
     """Load dashboard data from JSON file"""
     global dashboard_data
@@ -176,6 +184,8 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self.serve_admin_panel()
         elif self.path.startswith('/admin/status'):
             self.admin_status()
+        elif self.path == '/admin/auto-refresh-settings':
+            self.get_auto_refresh_settings()
         else:
             super().do_GET()
     
@@ -186,6 +196,8 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self.admin_login()
         elif self.path == '/admin/refresh':
             self.admin_refresh()
+        elif self.path == '/admin/auto-refresh-settings':
+            self.set_auto_refresh_settings()
         else:
             self.send_error(404)
     
@@ -470,6 +482,114 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self.end_headers()
             self.wfile.write(json.dumps(response).encode())
     
+    def get_auto_refresh_settings(self):
+        """Get current auto-refresh settings"""
+        auth_header = self.headers.get('Authorization')
+        if not is_admin_authenticated(auth_header):
+            self.send_error(401, "Unauthorized")
+            return
+        
+        try:
+            global auto_refresh_settings
+            
+            # Calculate next refresh time
+            next_refresh = None
+            if auto_refresh_settings["enabled"] and auto_refresh_settings["thread"] and auto_refresh_settings["thread"].is_alive():
+                next_refresh_time = time.time() + (auto_refresh_settings["interval_minutes"] * 60)
+                next_refresh = time.strftime('%H:%M:%S', time.localtime(next_refresh_time))
+            
+            response = {
+                "enabled": auto_refresh_settings["enabled"],
+                "interval_minutes": auto_refresh_settings["interval_minutes"],
+                "next_refresh": next_refresh,
+                "thread_active": auto_refresh_settings["thread"] and auto_refresh_settings["thread"].is_alive()
+            }
+            
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps(response).encode())
+            
+        except Exception as e:
+            self.send_error(500, f"Error getting settings: {str(e)}")
+    
+    def set_auto_refresh_settings(self):
+        """Set auto-refresh settings"""
+        auth_header = self.headers.get('Authorization')
+        if not is_admin_authenticated(auth_header):
+            self.send_error(401, "Unauthorized")
+            return
+        
+        try:
+            content_length = int(self.headers['Content-Length'])
+            post_data = self.rfile.read(content_length)
+            data = json.loads(post_data.decode('utf-8'))
+            
+            enabled = data.get('enabled', False)
+            interval_minutes = int(data.get('interval_minutes', 60))
+            
+            # Validate interval
+            if interval_minutes < 5:
+                interval_minutes = 5
+            elif interval_minutes > 1440:  # 24 hours max
+                interval_minutes = 1440
+            
+            global auto_refresh_settings
+            
+            # Stop current thread if running
+            if auto_refresh_settings["stop_event"]:
+                auto_refresh_settings["stop_event"].set()
+            
+            # Update settings
+            auto_refresh_settings["enabled"] = enabled
+            auto_refresh_settings["interval_minutes"] = interval_minutes
+            
+            # Start new thread if enabled
+            if enabled:
+                import threading
+                auto_refresh_settings["stop_event"] = threading.Event()
+                auto_refresh_settings["thread"] = threading.Thread(
+                    target=auto_refresh_data_with_settings, 
+                    args=(auto_refresh_settings["stop_event"], interval_minutes),
+                    daemon=True
+                )
+                auto_refresh_settings["thread"].start()
+                print(f"🔄 Auto-refresh enabled: Every {interval_minutes} minutes")
+            else:
+                print("⏸️ Auto-refresh disabled")
+            
+            # Calculate next refresh time
+            next_refresh = None
+            if enabled:
+                next_refresh_time = time.time() + (interval_minutes * 60)
+                next_refresh = time.strftime('%H:%M:%S', time.localtime(next_refresh_time))
+            
+            response = {
+                "success": True,
+                "message": f"Auto-refresh {'enabled' if enabled else 'disabled'} with {interval_minutes} minute interval",
+                "settings": {
+                    "enabled": enabled,
+                    "interval_minutes": interval_minutes,
+                    "next_refresh": next_refresh,
+                    "thread_active": enabled and auto_refresh_settings["thread"] and auto_refresh_settings["thread"].is_alive()
+                }
+            }
+            
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps(response).encode())
+            
+        except Exception as e:
+            response = {
+                "success": False,
+                "message": f"Error saving settings: {str(e)}"
+            }
+            self.send_response(500)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps(response).encode())
+    
     def serve_dashboard_data(self):
         """Serve the processed dashboard data as JSON"""
         try:
@@ -594,6 +714,61 @@ def auto_refresh_data():
             print(f"❌ Auto-refresh error: {e}")
             # Continue the loop even if there's an error
 
+def auto_refresh_data_with_settings(stop_event, interval_minutes):
+    """Auto-refresh data with configurable settings"""
+    while not stop_event.is_set():
+        try:
+            # Wait for the specified interval, but check for stop event every 30 seconds
+            wait_time = interval_minutes * 60  # Convert to seconds
+            elapsed = 0
+            
+            while elapsed < wait_time and not stop_event.is_set():
+                sleep_duration = min(30, wait_time - elapsed)  # Check every 30 seconds or remaining time
+                if stop_event.wait(sleep_duration):
+                    return  # Stop event was set
+                elapsed += sleep_duration
+            
+            if stop_event.is_set():
+                return
+            
+            config = load_config()
+            download_url = config['onedrive'].get('download_url', '')
+            
+            if not download_url or download_url == 'USE_ENVIRONMENT_VARIABLE':
+                print("⚠️ Auto-refresh skipped: OneDrive URL not configured")
+                continue
+                
+            print(f"🔄 Starting automatic data refresh (every {interval_minutes} minutes)...")
+            
+            # Download from OneDrive
+            download_success, download_result = download_from_onedrive(download_url)
+            
+            if download_success:
+                # Process data
+                processor = RawDataProcessor()
+                processor.process_raw_data()
+                
+                # Update refresh time
+                global last_refresh_time
+                last_refresh_time = time.time()
+                
+                print(f"✅ Automatic refresh completed successfully at {time.strftime('%Y-%m-%d %H:%M:%S')}")
+                
+                # Clean up Excel file
+                try:
+                    if os.path.exists('raw_query_data.xlsx'):
+                        os.remove('raw_query_data.xlsx')
+                        print("✅ Auto-refresh: Excel file cleaned up")
+                except Exception as e:
+                    print(f"⚠️ Auto-refresh cleanup warning: {e}")
+                    
+            else:
+                print(f"❌ Automatic refresh failed: {download_result}")
+                
+        except Exception as e:
+            print(f"❌ Auto-refresh error: {e}")
+            # Continue the loop even if there's an error
+
 def start_dashboard_server(port=8000):
     """Start the dashboard web server"""
     try:
@@ -690,10 +865,20 @@ def start_dashboard_server(port=8000):
         except Exception as e:
             print(f"⚠️ Initial sync error: {e}")
         
-        # Start auto-refresh thread for hourly OneDrive sync
-        auto_refresh_thread = threading.Thread(target=auto_refresh_data, daemon=True)
-        auto_refresh_thread.start()
-        print("🔄 Auto-refresh thread started - will sync OneDrive data every hour")
+        # Start configurable auto-refresh system
+        global auto_refresh_settings
+        if auto_refresh_settings["enabled"]:
+            import threading
+            auto_refresh_settings["stop_event"] = threading.Event()
+            auto_refresh_settings["thread"] = threading.Thread(
+                target=auto_refresh_data_with_settings, 
+                args=(auto_refresh_settings["stop_event"], auto_refresh_settings["interval_minutes"]),
+                daemon=True
+            )
+            auto_refresh_settings["thread"].start()
+            print(f"🔄 Auto-refresh started - will sync OneDrive data every {auto_refresh_settings['interval_minutes']} minutes")
+        else:
+            print("⏸️ Auto-refresh disabled - can be enabled from admin panel")
         
         # Start web server
         with socketserver.TCPServer(("0.0.0.0", port), DashboardHandler) as httpd:
