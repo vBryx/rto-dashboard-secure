@@ -684,7 +684,7 @@
                     }
                     
                     // Update percentages - SIMPLE ORIGINAL LOGIC
-                    if (statPercentages.length >= 9) {
+                    if (statPercentages.length >= 10) {
                         // Communication rate
                         const commPercent = totals.population > 0 ? 
                             Math.round((totals.communicated / totals.population) * 100) : 0;
@@ -726,13 +726,11 @@
                             Math.round((totals.arrived / totals.accepted) * 100) : 0;
                         statPercentages[8].textContent = arrivalPercent + '%';
                         
-                        // Enrollment percentage
+                        // Enrollment percentage - use proper index
                         const enrollPercent = totals.arrived > 0 ? 
                             Math.round((totals.enrolled / totals.arrived) * 100) : 0;
-                        // Find and update enrollment percentage if it exists
-                        const enrollStat = card.querySelector('.stat-item:last-child .stat-percentage');
-                        if (enrollStat) {
-                            enrollStat.textContent = enrollPercent + '%';
+                        if (statPercentages[9]) {
+                            statPercentages[9].textContent = enrollPercent + '%';
                         }
                     }
                 }

@@ -554,8 +554,8 @@ def auto_refresh_data():
     
     while True:
         try:
-            # Wait for 1 hour (3600 seconds)
-            time.sleep(3600)
+            # Wait for 2 minutes (120 seconds) - TESTING MODE
+            time.sleep(120)
             
             config = load_config()
             download_url = config['onedrive'].get('download_url', '')
