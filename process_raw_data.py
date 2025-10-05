@@ -46,15 +46,11 @@ class RawDataProcessor:
         # Calculate overview metrics
         dashboard_data["overview"] = self.calculate_overview_metrics(dashboard_data["sectors"])
         
-        # Ensure data directory exists
-        import os
-        os.makedirs('data', exist_ok=True)
-        
-        # Save processed data
-        with open('data/dashboard_data.json', 'w', encoding='utf-8') as f:
+        # Save processed data in root directory (no separate data folder)
+        with open('dashboard_data.json', 'w', encoding='utf-8') as f:
             json.dump(dashboard_data, f, indent=2, ensure_ascii=False)
         
-        print(f"Dashboard data saved to data/dashboard_data.json")
+        print(f"Dashboard data saved to dashboard_data.json")
         
         # Generate summary
         self.generate_summary_report(dashboard_data)
@@ -233,11 +229,11 @@ SECTOR BREAKDOWN:
             
             report += f"- {sector_name.title()}: {len(sector_data)} PHCs, {total_population:,} population, {total_communicated:,} communicated, {total_enrolled:,} enrolled\n"
         
-        # Save report
-        with open('data/summary_report.txt', 'w', encoding='utf-8') as f:
+        # Save report in root directory
+        with open('summary_report.txt', 'w', encoding='utf-8') as f:
             f.write(report)
         
-        print(f"Summary report saved to data/summary_report.txt")
+        print(f"Summary report saved to summary_report.txt")
         print(report)
 
 if __name__ == "__main__":

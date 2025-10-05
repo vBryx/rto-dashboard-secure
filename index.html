@@ -551,7 +551,7 @@
         function loadDashboardData() {
             // Add cache busting parameter to force fresh data
             const timestamp = new Date().getTime();
-            const url = `data/dashboard_data.json?t=${timestamp}`;
+            const url = `dashboard_data.json?t=${timestamp}`;
             
             fetch(url)
                 .then(response => response.json())

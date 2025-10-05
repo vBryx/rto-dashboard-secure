@@ -40,8 +40,8 @@ def load_dashboard_data():
     """Load dashboard data from JSON file"""
     global dashboard_data
     try:
-        if os.path.exists('data/dashboard_data.json'):
-            with open('data/dashboard_data.json', 'r', encoding='utf-8') as f:
+        if os.path.exists('dashboard_data.json'):
+            with open('dashboard_data.json', 'r', encoding='utf-8') as f:
                 dashboard_data = json.load(f)
         else:
             dashboard_data = {
@@ -252,7 +252,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             return
         
         try:
-            data_file = Path('data/dashboard_data.json')
+            data_file = Path('dashboard_data.json')
             excel_file = Path('raw_query_data.xlsx')
             
             # Get data info
@@ -375,7 +375,6 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             
             # PRIVACY: Force close and delete the downloaded Excel file
             import gc
-            import time
             import subprocess
             import platform
             
@@ -439,7 +438,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             last_refresh_time = current_time
             
             # Count processed records
-            data_file = Path('data/dashboard_data.json')
+            data_file = Path('dashboard_data.json')
             records_processed = 0
             if data_file.exists():
                 with open(data_file, 'r', encoding='utf-8') as f:
@@ -473,7 +472,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
     def serve_dashboard_data(self):
         """Serve the processed dashboard data as JSON"""
         try:
-            data_file = Path('data/dashboard_data.json')
+            data_file = Path('dashboard_data.json')
             if data_file.exists():
                 with open(data_file, 'r', encoding='utf-8') as f:
                     data = json.load(f)
@@ -490,7 +489,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
     def serve_status(self):
         """Serve the current status of the dashboard"""
         try:
-            data_file = Path('data/dashboard_data.json')
+            data_file = Path('dashboard_data.json')
             status = {
                 "status": "ready" if data_file.exists() else "no_data",
                 "last_updated": None,
@@ -555,13 +554,12 @@ def start_dashboard_server(port=8000):
         cleanup_temp_files()
         
         # Check if we have existing dashboard data
-        if os.path.exists("data/dashboard_data.json"):
+        if os.path.exists("dashboard_data.json"):
             print("Loading existing dashboard data...")
             load_dashboard_data()
         else:
             # Create minimal dashboard data structure
             print("No existing dashboard data found, creating minimal structure...")
-            os.makedirs('data', exist_ok=True)
             minimal_data = {
                 "last_updated": "Not available",
                 "total_sectors": 0,
@@ -570,7 +568,7 @@ def start_dashboard_server(port=8000):
                 "sectors": [],
                 "summary": "No data available. Please refresh from admin panel."
             }
-            with open('data/dashboard_data.json', 'w') as f:
+            with open('dashboard_data.json', 'w') as f:
                 json.dump(minimal_data, f, indent=2)
             dashboard_data = minimal_data
         
