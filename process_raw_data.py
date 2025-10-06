@@ -42,6 +42,8 @@ class RawDataProcessor:
                 if len(df) != original_count:
                     removed = original_count - len(df)
                     print(f"  - Removed {removed} duplicate rows, {len(df)} rows remaining")
+                else:
+                    print(f"  - No duplicate rows found")
                 
                 # Remove rows with empty/null National ID (these shouldn't be counted as patients)
                 before_filter = len(df)
@@ -49,6 +51,10 @@ class RawDataProcessor:
                 if len(df) != before_filter:
                     filtered = before_filter - len(df)
                     print(f"  - Filtered out {filtered} rows with empty National ID, {len(df)} rows remaining")
+                else:
+                    print(f"  - No empty National ID rows found, {len(df)} rows remaining")
+                
+                print(f"  ✅ {sector} final count: {len(df)}")
                 
             except Exception as e:
                 print(f"  - Error reading {sector}: {e}")
