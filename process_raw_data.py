@@ -82,27 +82,56 @@ class RawDataProcessor:
             if pd.isna(phc_name) or phc_name == '':
                 continue
                 
-            # Calculate metrics for this PHC using unique National IDs (fixed counting)
-            total_population = group['National ID'].nunique()
+            # Calculate metrics for this PHC using corrected unique counting
+            # Strategy: Remove duplicates by National ID, treat empty/null as separate unique records
+            
+            # For rows with valid National IDs, keep only unique ones
+            valid_id_rows = group[group['National ID'].notna()]
+            unique_valid_rows = valid_id_rows.drop_duplicates(subset=['National ID']) if not valid_id_rows.empty else pd.DataFrame()
+            
+            # For rows with null/empty National IDs, keep all (assume each is unique person)
+            null_id_rows = group[group['National ID'].isna()]
+            
+            # Total unique population = unique valid ID rows + all null ID rows
+            total_population = len(unique_valid_rows) + len(null_id_rows)
             
             # Debug logging for counting verification
-            if len(group) != total_population:
-                print(f"DEBUG: PHC {phc_name} - Total rows: {len(group)}, Unique IDs: {total_population}, Difference: {len(group) - total_population}")
+            total_rows = len(group)
+            valid_unique = len(unique_valid_rows)
+            null_count = len(null_id_rows)
             
-            # Communication metrics - using unique National IDs
-            communicated = group[group['Response'].notna()]['National ID'].nunique()
-            accepted = group[group['Response'] == 'Accepted']['National ID'].nunique()
-            refused = group[group['Response'] == 'Refused']['National ID'].nunique()
-            wrong_number = group[group['Response'] == 'Wrong number']['National ID'].nunique()
-            no_response = group[group['Response'] == 'No response']['National ID'].nunique()
+            if total_rows != total_population:
+                valid_duplicates = len(valid_id_rows) - valid_unique
+                print(f"🔍 PHC {phc_name} - Rows: {total_rows}, Valid unique: {valid_unique}, Null: {null_count}, Final: {total_population}")
+                if valid_duplicates > 0:
+                    print(f"   🔄 Removed {valid_duplicates} duplicate National IDs")
+            else:
+                print(f"✅ PHC {phc_name} - Perfect count: {total_population}")
             
-            # Visit types - using unique National IDs
-            in_person_visits = group[group['Scheduled'] == 'In-Person']['National ID'].nunique()
-            virtual_visits = group[group['Scheduled'] == 'Virtual']['National ID'].nunique()
+            # Communication metrics - using consistent unique counting strategy
+            def count_unique_with_nulls(subset_df):
+                """Count unique people using same strategy as total population"""
+                if subset_df.empty:
+                    return 0
+                # Split by valid vs null National IDs
+                valid_ids = subset_df.dropna(subset=['National ID'])
+                null_ids = subset_df[subset_df['National ID'].isna() | (subset_df['National ID'] == '')]
+                # Unique valid IDs + all null IDs (each null assumed unique)
+                return len(valid_ids.drop_duplicates(subset=['National ID'])) + len(null_ids)
             
-            # Arrival and enrollment - using unique National IDs
-            arrived = group[group['Arrived'] == 'Yes']['National ID'].nunique()
-            enrolled = group[group['Enrollment'] == 'Yes']['National ID'].nunique()
+            communicated = count_unique_with_nulls(group[group['Response'].notna()])
+            accepted = count_unique_with_nulls(group[group['Response'] == 'Accepted'])
+            refused = count_unique_with_nulls(group[group['Response'] == 'Refused'])
+            wrong_number = count_unique_with_nulls(group[group['Response'] == 'Wrong number'])
+            no_response = count_unique_with_nulls(group[group['Response'] == 'No response'])
+            
+            # Visit types - using consistent unique counting
+            in_person_visits = count_unique_with_nulls(group[group['Scheduled'] == 'In-Person'])
+            virtual_visits = count_unique_with_nulls(group[group['Scheduled'] == 'Virtual'])
+            
+            # Arrival and enrollment - using consistent unique counting
+            arrived = count_unique_with_nulls(group[group['Arrived'] == 'Yes'])
+            enrolled = count_unique_with_nulls(group[group['Enrollment'] == 'Yes'])
             
             phc_data = {
                 "phc_name": phc_name,

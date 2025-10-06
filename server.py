@@ -92,11 +92,24 @@ def load_auto_refresh_settings():
         if os.path.exists('auto_refresh_config.json'):
             with open('auto_refresh_config.json', 'r', encoding='utf-8') as f:
                 saved_settings = json.load(f)
-                # Only load the persistent settings, not thread-related ones
+                # Load settings with backward compatibility
                 auto_refresh_settings["enabled"] = saved_settings.get("enabled", True)
-                auto_refresh_settings["interval_minutes"] = saved_settings.get("interval_minutes", 120)
+                
+                # Handle both old and new format
+                if "simple_interval_minutes" in saved_settings:
+                    auto_refresh_settings["simple_interval_minutes"] = saved_settings["simple_interval_minutes"]
+                    auto_refresh_settings["mode"] = saved_settings.get("mode", "simple")
+                else:
+                    # Backward compatibility
+                    auto_refresh_settings["simple_interval_minutes"] = saved_settings.get("interval_minutes", 120)
+                    auto_refresh_settings["mode"] = "simple"
+                
+                # Load advanced schedule if present
+                if "advanced_schedule" in saved_settings:
+                    auto_refresh_settings["advanced_schedule"] = saved_settings["advanced_schedule"]
+                
                 auto_refresh_settings["last_refresh_time"] = saved_settings.get("last_refresh_time", None)
-                print(f"Loaded auto-refresh settings: Enabled={auto_refresh_settings['enabled']}, Interval={auto_refresh_settings['interval_minutes']} minutes")
+                print(f"Loaded auto-refresh settings: Enabled={auto_refresh_settings['enabled']}, Mode={auto_refresh_settings['mode']}")
     except Exception as e:
         print(f"Error loading auto-refresh settings: {e}")
 
@@ -105,12 +118,18 @@ def save_auto_refresh_settings():
     try:
         settings_to_save = {
             "enabled": auto_refresh_settings["enabled"],
-            "interval_minutes": auto_refresh_settings["interval_minutes"],
+            "mode": auto_refresh_settings.get("mode", "simple"),
+            "simple_interval_minutes": auto_refresh_settings.get("simple_interval_minutes", 120),
             "last_refresh_time": auto_refresh_settings.get("last_refresh_time", None)
         }
+        
+        # Save advanced schedule if present
+        if "advanced_schedule" in auto_refresh_settings:
+            settings_to_save["advanced_schedule"] = auto_refresh_settings["advanced_schedule"]
+        
         with open('auto_refresh_config.json', 'w', encoding='utf-8') as f:
             json.dump(settings_to_save, f, indent=2)
-        print(f"Saved auto-refresh settings: {settings_to_save}")
+        print(f"Saved auto-refresh settings: Mode={settings_to_save['mode']}")
     except Exception as e:
         print(f"Error saving auto-refresh settings: {e}")
 
@@ -725,22 +744,24 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             # Calculate next refresh time more accurately
             next_refresh = None
             time_until_next = None
+            current_interval = get_next_refresh_interval()  # Get dynamic interval
+            
             if auto_refresh_settings["enabled"] and auto_refresh_settings["thread"] and auto_refresh_settings["thread"].is_alive():
                 last_refresh = auto_refresh_settings.get("last_refresh_time")
                 if last_refresh:
                     # Calculate based on last actual refresh time
-                    next_refresh_time = last_refresh + (auto_refresh_settings["interval_minutes"] * 60)
+                    next_refresh_time = last_refresh + (current_interval * 60)
                     time_until_next = max(0, int(next_refresh_time - time.time()))
                     next_refresh = time.strftime('%H:%M:%S', time.localtime(next_refresh_time))
                 else:
                     # Fallback to current time + interval
-                    next_refresh_time = time.time() + (auto_refresh_settings["interval_minutes"] * 60)
-                    time_until_next = auto_refresh_settings["interval_minutes"] * 60
+                    next_refresh_time = time.time() + (current_interval * 60)
+                    time_until_next = current_interval * 60
                     next_refresh = time.strftime('%H:%M:%S', time.localtime(next_refresh_time))
             
             response = {
                 "enabled": auto_refresh_settings["enabled"],
-                "interval_minutes": auto_refresh_settings["interval_minutes"],
+                "interval_minutes": current_interval,
                 "next_refresh": next_refresh,
                 "time_until_next_seconds": time_until_next,
                 "last_refresh_time": auto_refresh_settings.get("last_refresh_time"),
