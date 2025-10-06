@@ -1095,6 +1095,8 @@ def get_next_refresh_interval():
 
 def auto_refresh_data_with_settings(stop_event, initial_interval_minutes):
     """Advanced auto-refresh with dynamic time-based scheduling"""
+    global last_refresh_time, auto_refresh_settings
+    
     print("🕒 Advanced auto-refresh started with dynamic scheduling")
     
     while not stop_event.is_set():
@@ -1137,7 +1139,6 @@ def auto_refresh_data_with_settings(stop_event, initial_interval_minutes):
                     cleanup_memory()  # Free memory after processing
                 
                 # Update refresh time
-                global last_refresh_time, auto_refresh_settings
                 last_refresh_time = time.time()
                 auto_refresh_settings["last_refresh_time"] = last_refresh_time
                 

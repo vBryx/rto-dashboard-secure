@@ -56,7 +56,7 @@ class RawDataProcessor:
         elif total_pop == 52299:
             print("✅ SUCCESS: Correct count of 52,299 achieved with unique counting!")
         else:
-            print(f"ℹ️ INFO: Population count is {total_pop:,}").
+            print(f"ℹ️ INFO: Population count is {total_pop:,}")
         
         # Save processed data in root directory (no separate data folder)
         with open('dashboard_data.json', 'w', encoding='utf-8') as f:
