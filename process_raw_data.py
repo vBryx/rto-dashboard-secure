@@ -71,23 +71,23 @@ class RawDataProcessor:
             if pd.isna(phc_name) or phc_name == '':
                 continue
                 
-            # Calculate metrics for this PHC
-            total_population = len(group)
+            # Calculate metrics for this PHC using unique National IDs
+            total_population = group['National ID'].nunique()
             
-            # Communication metrics
-            communicated = len(group[group['Response'].notna()])
-            accepted = len(group[group['Response'] == 'Accepted'])
-            refused = len(group[group['Response'] == 'Refused'])
-            wrong_number = len(group[group['Response'] == 'Wrong number'])
-            no_response = len(group[group['Response'] == 'No response'])
+            # Communication metrics - using unique National IDs
+            communicated = group[group['Response'].notna()]['National ID'].nunique()
+            accepted = group[group['Response'] == 'Accepted']['National ID'].nunique()
+            refused = group[group['Response'] == 'Refused']['National ID'].nunique()
+            wrong_number = group[group['Response'] == 'Wrong number']['National ID'].nunique()
+            no_response = group[group['Response'] == 'No response']['National ID'].nunique()
             
-            # Visit types
-            in_person_visits = len(group[group['Scheduled'] == 'In-Person'])
-            virtual_visits = len(group[group['Scheduled'] == 'Virtual'])
+            # Visit types - using unique National IDs
+            in_person_visits = group[group['Scheduled'] == 'In-Person']['National ID'].nunique()
+            virtual_visits = group[group['Scheduled'] == 'Virtual']['National ID'].nunique()
             
-            # Arrival and enrollment
-            arrived = len(group[group['Arrived'] == 'Yes'])
-            enrolled = len(group[group['Enrollment'] == 'Yes'])
+            # Arrival and enrollment - using unique National IDs
+            arrived = group[group['Arrived'] == 'Yes']['National ID'].nunique()
+            enrolled = group[group['Enrollment'] == 'Yes']['National ID'].nunique()
             
             phc_data = {
                 "phc_name": phc_name,
