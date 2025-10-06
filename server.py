@@ -203,6 +203,8 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self.admin_status()
         elif self.path == '/admin/auto-refresh-settings':
             self.get_auto_refresh_settings()
+        elif self.path == '/admin/test-settings':
+            self.test_auto_refresh_settings()
         else:
             super().do_GET()
     
@@ -217,6 +219,14 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self.set_auto_refresh_settings()
         else:
             self.send_error(404)
+    
+    def do_OPTIONS(self):
+        """Handle CORS preflight requests"""
+        self.send_response(200)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+        self.end_headers()
     
     def serve_admin_panel(self):
         """Serve the admin panel HTML"""
@@ -525,6 +535,36 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         except Exception as e:
             self.send_error(500, f"Error getting settings: {str(e)}")
     
+    def test_auto_refresh_settings(self):
+        """Test endpoint to debug auto-refresh settings"""
+        auth_header = self.headers.get('Authorization')
+        if not is_admin_authenticated(auth_header):
+            self.send_error(401, "Unauthorized")
+            return
+        
+        try:
+            global auto_refresh_settings
+            
+            response = {
+                "current_settings": auto_refresh_settings,
+                "thread_info": {
+                    "exists": auto_refresh_settings.get("thread") is not None,
+                    "alive": auto_refresh_settings.get("thread") and auto_refresh_settings["thread"].is_alive() if auto_refresh_settings.get("thread") else False
+                },
+                "stop_event_info": {
+                    "exists": auto_refresh_settings.get("stop_event") is not None,
+                    "is_set": auto_refresh_settings.get("stop_event") and auto_refresh_settings["stop_event"].is_set() if auto_refresh_settings.get("stop_event") else False
+                }
+            }
+            
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps(response, indent=2).encode())
+            
+        except Exception as e:
+            self.send_error(500, f"Error testing settings: {str(e)}")
+    
     def set_auto_refresh_settings(self):
         """Set auto-refresh settings"""
         auth_header = self.headers.get('Authorization')
@@ -554,23 +594,32 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             global auto_refresh_settings
             
             # Stop current thread if running
-            if auto_refresh_settings["stop_event"]:
-                auto_refresh_settings["stop_event"].set()
+            try:
+                if auto_refresh_settings.get("stop_event"):
+                    auto_refresh_settings["stop_event"].set()
+                    print("🛑 Stopped existing auto-refresh thread")
+            except Exception as e:
+                print(f"⚠️ Warning stopping thread: {e}")
             
             # Update settings
             auto_refresh_settings["enabled"] = enabled
             auto_refresh_settings["interval_minutes"] = interval_minutes
+            print(f"📝 Updated settings: {auto_refresh_settings}")
             
             # Start new thread if enabled
             if enabled:
-                auto_refresh_settings["stop_event"] = threading.Event()
-                auto_refresh_settings["thread"] = threading.Thread(
-                    target=auto_refresh_data_with_settings, 
-                    args=(auto_refresh_settings["stop_event"], interval_minutes),
-                    daemon=True
-                )
-                auto_refresh_settings["thread"].start()
-                print(f"🔄 Auto-refresh enabled: Every {interval_minutes} minutes")
+                try:
+                    auto_refresh_settings["stop_event"] = threading.Event()
+                    auto_refresh_settings["thread"] = threading.Thread(
+                        target=auto_refresh_data_with_settings, 
+                        args=(auto_refresh_settings["stop_event"], interval_minutes),
+                        daemon=True
+                    )
+                    auto_refresh_settings["thread"].start()
+                    print(f"🔄 Auto-refresh enabled: Every {interval_minutes} minutes")
+                except Exception as e:
+                    print(f"❌ Error starting auto-refresh thread: {e}")
+                    raise e
             else:
                 print("⏸️ Auto-refresh disabled")
             

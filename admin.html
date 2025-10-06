@@ -387,6 +387,9 @@
                     <button id="saveSettingsBtn" class="btn save-settings-btn" onclick="saveAutoRefreshSettings()">
                         <i class="fas fa-save"></i> Save Settings
                     </button>
+                    <button class="btn" style="background: #3498db; margin-top: 10px;" onclick="testAutoRefreshSettings()">
+                        <i class="fas fa-bug"></i> Debug Settings
+                    </button>
                     <div id="autoRefreshStatus" class="auto-refresh-status">
                         Auto-refresh is currently disabled. Enable it to automatically sync data at regular intervals.
                     </div>
@@ -620,6 +623,8 @@
             const enabled = document.getElementById('autoRefreshEnabled').checked;
             const interval = parseInt(document.getElementById('refreshInterval').value);
             
+            console.log('Saving settings:', { enabled, interval }); // Debug log
+            
             const saveBtn = document.getElementById('saveSettingsBtn');
             saveBtn.disabled = true;
             saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
@@ -637,7 +642,14 @@
                     })
                 });
                 
+                console.log('Response status:', response.status); // Debug log
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
                 const result = await response.json();
+                console.log('Response data:', result); // Debug log
                 
                 if (result.success) {
                     addLog(`Auto-refresh settings saved: ${enabled ? 'Enabled' : 'Disabled'}, Interval: ${interval} minutes`, 'success');
@@ -646,7 +658,8 @@
                     addLog(`Failed to save settings: ${result.message}`, 'error');
                 }
             } catch (error) {
-                addLog('Error saving auto-refresh settings', 'error');
+                console.error('Save settings error:', error); // Debug log
+                addLog(`Error saving auto-refresh settings: ${error.message}`, 'error');
             } finally {
                 saveBtn.disabled = false;
                 saveBtn.innerHTML = '<i class="fas fa-save"></i> Save Settings';
@@ -672,6 +685,25 @@
                 `;
                 statusDiv.style.background = '#fadbd8';
                 statusDiv.style.border = '1px solid #e74c3c';
+            }
+        }
+        
+        async function testAutoRefreshSettings() {
+            try {
+                const response = await fetch('/admin/test-settings', {
+                    headers: {
+                        'Authorization': `Bearer ${sessionToken}`
+                    }
+                });
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    addLog(`Debug info: ${JSON.stringify(data, null, 2)}`, 'info');
+                } else {
+                    addLog(`Debug test failed: ${response.status}`, 'error');
+                }
+            } catch (error) {
+                addLog(`Debug test error: ${error.message}`, 'error');
             }
         }
         
