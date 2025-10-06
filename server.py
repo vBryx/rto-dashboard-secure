@@ -443,7 +443,6 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                                     print(f"⚠️ File renamed to {temp_name} - will be cleaned up later")
                                     
                                     # Try to delete the temp file in background
-                                    import threading
                                     def delayed_delete():
                                         time.sleep(10)
                                         try:
@@ -534,12 +533,17 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             return
         
         try:
-            content_length = int(self.headers['Content-Length'])
+            content_length = int(self.headers.get('Content-Length', 0))
+            if content_length == 0:
+                raise ValueError("No data received")
+                
             post_data = self.rfile.read(content_length)
             data = json.loads(post_data.decode('utf-8'))
             
             enabled = data.get('enabled', False)
-            interval_minutes = int(data.get('interval_minutes', 60))
+            interval_minutes = int(data.get('interval_minutes', 120))
+            
+            print(f"🔧 Setting auto-refresh: enabled={enabled}, interval={interval_minutes}min")
             
             # Validate interval
             if interval_minutes < 5:
@@ -559,7 +563,6 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             
             # Start new thread if enabled
             if enabled:
-                import threading
                 auto_refresh_settings["stop_event"] = threading.Event()
                 auto_refresh_settings["thread"] = threading.Thread(
                     target=auto_refresh_data_with_settings, 
@@ -594,6 +597,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(json.dumps(response).encode())
             
         except Exception as e:
+            print(f"❌ Error saving auto-refresh settings: {str(e)}")
             response = {
                 "success": False,
                 "message": f"Error saving settings: {str(e)}"
@@ -894,7 +898,6 @@ def start_dashboard_server(port=8000):
         # Start configurable auto-refresh system
         global auto_refresh_settings
         if auto_refresh_settings["enabled"]:
-            import threading
             auto_refresh_settings["stop_event"] = threading.Event()
             auto_refresh_settings["thread"] = threading.Thread(
                 target=auto_refresh_data_with_settings, 
