@@ -6,6 +6,7 @@ import requests
 import uuid
 import time
 import threading
+from datetime import datetime
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 # Lazy import for heavy dependencies
@@ -247,6 +248,8 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self.admin_login()
         elif self.path == '/admin/refresh':
             self.admin_refresh()
+        elif self.path == '/admin/force-cache-clear':
+            self.force_cache_clear()
         elif self.path == '/admin/auto-refresh-settings':
             self.set_auto_refresh_settings()
         else:
@@ -558,6 +561,94 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             response = {
                 "success": False,
                 "message": f"Refresh error: {str(e)}"
+            }
+            
+            self.send_response(500)
+            self.send_header('Content-type', 'application/json')
+            self.end_headers()
+            self.wfile.write(json.dumps(response).encode())
+    
+    def force_cache_clear(self):
+        """Force clear all cache and regenerate data"""
+        global dashboard_data, last_refresh_time
+        
+        auth_header = self.headers.get('Authorization')
+        if not is_admin_authenticated(auth_header):
+            self.send_error(401, "Unauthorized")
+            return
+        
+        try:
+            print("🧹 FORCE CACHE CLEAR INITIATED")
+            
+            # Step 1: Clear in-memory cache
+            dashboard_data = {}
+            print("✅ In-memory cache cleared")
+            
+            # Step 2: Delete dashboard_data.json to force regeneration
+            if os.path.exists('dashboard_data.json'):
+                os.remove('dashboard_data.json')
+                print("✅ dashboard_data.json deleted")
+            
+            # Step 3: Delete auto-refresh config to reset settings
+            if os.path.exists('auto_refresh_config.json'):
+                os.remove('auto_refresh_config.json')
+                print("✅ auto_refresh_config.json cleared")
+            
+            # Step 4: Force garbage collection
+            import gc
+            gc.collect()
+            print("✅ Garbage collection completed")
+            
+            # Step 5: Reset refresh timer
+            last_refresh_time = 0
+            print("✅ Refresh timer reset")
+            
+            # Step 6: Regenerate data if raw data exists
+            if os.path.exists('raw_query_data.xlsx'):
+                print("🔄 Regenerating data with fresh calculations...")
+                processor = get_data_processor()
+                if processor:
+                    processor.process_raw_data()
+                    print("✅ Data regenerated successfully")
+                else:
+                    print("⚠️ Could not load data processor")
+            else:
+                print("⚠️ No raw data file found - data will be empty until refresh")
+            
+            # Step 7: Reload dashboard data
+            load_dashboard_data()
+            print("✅ Dashboard data reloaded")
+            
+            response = {
+                "success": True,
+                "message": "Cache forcefully cleared and data regenerated!",
+                "timestamp": datetime.now().isoformat(),
+                "actions_performed": [
+                    "In-memory cache cleared",
+                    "dashboard_data.json deleted",
+                    "auto_refresh_config.json cleared", 
+                    "Garbage collection performed",
+                    "Refresh timer reset",
+                    "Data regenerated" if os.path.exists('raw_query_data.xlsx') else "No raw data to regenerate",
+                    "Dashboard data reloaded"
+                ]
+            }
+            
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+            self.send_header('Pragma', 'no-cache')
+            self.send_header('Expires', '0')
+            self.end_headers()
+            self.wfile.write(json.dumps(response).encode())
+            
+            print("🎉 FORCE CACHE CLEAR COMPLETED SUCCESSFULLY")
+            
+        except Exception as e:
+            print(f"❌ Force cache clear error: {e}")
+            response = {
+                "success": False,
+                "message": f"Force cache clear error: {str(e)}"
             }
             
             self.send_response(500)

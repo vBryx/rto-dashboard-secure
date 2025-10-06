@@ -365,6 +365,9 @@
                     <button id="refreshBtn" class="btn refresh-btn" onclick="refreshData()">
                         <i class="fas fa-download"></i> Refresh Data from OneDrive
                     </button>
+                    <button id="forceCacheClearBtn" class="btn" style="background: #e74c3c; margin-left: 10px;" onclick="forceCacheClear()">
+                        <i class="fas fa-trash-alt"></i> Force Cache Clear
+                    </button>
                     <div id="refreshStatus"></div>
                 </div>
                 
@@ -519,6 +522,59 @@
             } finally {
                 refreshBtn.disabled = false;
                 refreshBtn.innerHTML = '<i class="fas fa-download"></i> Refresh Data from OneDrive';
+            }
+        }
+        
+        async function forceCacheClear() {
+            const forceCacheClearBtn = document.getElementById('forceCacheClearBtn');
+            const refreshStatus = document.getElementById('refreshStatus');
+            
+            if (!confirm('⚠️ This will FORCE CLEAR ALL CACHE and regenerate data!\n\nThis will:\n- Clear in-memory cache\n- Delete dashboard_data.json\n- Reset auto-refresh settings\n- Regenerate all data from scratch\n\nAre you sure?')) {
+                return;
+            }
+            
+            try {
+                forceCacheClearBtn.disabled = true;
+                forceCacheClearBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Force Clearing Cache...';
+                refreshStatus.innerHTML = '<span class="status-working">🧹 Force clearing cache and regenerating data...</span>';
+                
+                addLog('Force cache clear initiated...', 'info');
+                
+                const response = await fetch('/admin/force-cache-clear', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${authToken}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+                
+                const result = await response.json();
+                
+                if (result.success) {
+                    addLog('🎉 Force cache clear completed successfully!', 'success');
+                    result.actions_performed?.forEach(action => {
+                        addLog(`✅ ${action}`, 'success');
+                    });
+                    
+                    refreshStatus.innerHTML = '<span class="status-success">✅ Cache forcefully cleared and data regenerated!</span>';
+                    
+                    // Reload the admin status
+                    setTimeout(() => {
+                        loadStatus();
+                        refreshStatus.innerHTML = '';
+                    }, 3000);
+                    
+                } else {
+                    addLog(`❌ Force cache clear failed: ${result.message}`, 'error');
+                    refreshStatus.innerHTML = '<span class="status-error">❌ Force cache clear failed</span>';
+                }
+                
+            } catch (error) {
+                addLog('❌ Network error during force cache clear', 'error');
+                refreshStatus.innerHTML = '<span class="status-error">❌ Network error</span>';
+            } finally {
+                forceCacheClearBtn.disabled = false;
+                forceCacheClearBtn.innerHTML = '<i class="fas fa-trash-alt"></i> Force Cache Clear';
             }
         }
         
