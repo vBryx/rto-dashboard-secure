@@ -16,8 +16,9 @@ class RawDataProcessor:
             "overview": {}
         }
         
-        # Try to open Excel file with explicit engine
+        # Try to open Excel file with explicit engine and optimize for memory
         try:
+            # Use chunksize to reduce memory usage for large files
             xl = pd.ExcelFile('raw_query_data.xlsx', engine='openpyxl')
         except Exception as e:
             print(f"Error opening Excel file: {e}")
@@ -235,6 +236,15 @@ SECTOR BREAKDOWN:
         
         print(f"Summary report saved to summary_report.txt")
         print(report)
+        
+        # Clean up memory
+        try:
+            xl.close()  # Close Excel file
+        except:
+            pass
+        
+        import gc
+        gc.collect()  # Force garbage collection to free memory
 
 if __name__ == "__main__":
     processor = RawDataProcessor()

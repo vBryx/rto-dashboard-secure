@@ -563,8 +563,8 @@
         }
         
         function startStatusPolling() {
-            // Refresh status every 30 seconds
-            setInterval(loadStatus, 30000);
+            // Refresh status every 2 minutes for cost optimization (reduced from 30 seconds)
+            setInterval(loadStatus, 120000);
         }
         
         // Auto-refresh management functions

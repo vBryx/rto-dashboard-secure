@@ -633,8 +633,8 @@
         // Initial load
         loadDashboardData();
         
-        // Auto-refresh every 30 seconds for seamless updates
-        setInterval(loadDashboardData, 30000);
+        // Auto-refresh every 2 minutes for cost optimization (reduced from 30 seconds)
+        setInterval(loadDashboardData, 120000);
         
         function getPercentageColor(percentage) {
             // Simple color logic ONLY for overview tab

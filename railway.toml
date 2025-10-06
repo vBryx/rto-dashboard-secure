@@ -5,3 +5,14 @@ builder = "NIXPACKS"
 healthcheckPath = "/"
 healthcheckTimeout = 100
 restartPolicyType = "ON_FAILURE"
+
+# Resource optimization for cost efficiency
+startCommand = "python server.py"
+numReplicas = 1
+
+# Environment variables for optimization
+[deploy.environmentVariables]
+PYTHONOPTIMIZE = "1"  # Enable Python optimizations
+PYTHONDONTWRITEBYTECODE = "1"  # Don't create .pyc files
+PYTHONUNBUFFERED = "1"  # Faster output
+GC_DISABLE = "0"  # Enable garbage collection

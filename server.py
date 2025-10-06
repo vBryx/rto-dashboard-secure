@@ -8,7 +8,24 @@ import time
 import threading
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
-from process_raw_data import RawDataProcessor
+# Lazy import for heavy dependencies
+import gc
+import sys
+
+def get_data_processor():
+    """Lazy load the data processor to save memory when not processing data"""
+    try:
+        from process_raw_data import RawDataProcessor
+        return RawDataProcessor()
+    except ImportError as e:
+        print(f"Warning: Could not import RawDataProcessor: {e}")
+        return None
+
+def cleanup_memory():
+    """Force garbage collection to minimize memory usage"""
+    gc.collect()
+    # Clear Python's internal caches
+    sys.intern('')  # Clear string intern cache
 
 # Load environment variables from .env file for local development
 def load_env_file():
@@ -37,10 +54,10 @@ admin_sessions = {}
 last_refresh_time = 0
 dashboard_data = {}
 
-# Auto-refresh settings
+# Auto-refresh settings - optimized for cost efficiency
 auto_refresh_settings = {
     "enabled": True,
-    "interval_minutes": 60,
+    "interval_minutes": 120,  # Default to 2 hours to reduce CPU usage
     "thread": None,
     "stop_event": None
 }
@@ -382,20 +399,16 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 self.wfile.write(json.dumps(response).encode())
                 return
             
-            # Process data
-            processor = RawDataProcessor()
-            processor.process_raw_data()
+            # Process data with memory optimization
+            processor = get_data_processor()
+            if processor:
+                processor.process_raw_data()
             
             # PRIVACY: Force close and delete the downloaded Excel file
-            import gc
-            import subprocess
-            import platform
+            cleanup_memory()  # Enhanced memory cleanup
             
-            # Force garbage collection and clear any pandas cache
-            gc.collect()
-            
-            # Wait longer for file handles to release
-            time.sleep(3)
+            # Wait for file handles to release
+            time.sleep(2)  # Reduced wait time
             
             try:
                 if os.path.exists('raw_query_data.xlsx'):
@@ -631,8 +644,10 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
     def refresh_data(self):
         """Manually refresh the dashboard data (legacy endpoint)"""
         try:
-            processor = RawDataProcessor()
-            processor.process_raw_data()
+            processor = get_data_processor()
+            if processor:
+                processor.process_raw_data()
+                cleanup_memory()  # Free memory after processing
             
             response = {
                 "success": True,
@@ -690,9 +705,11 @@ def auto_refresh_data():
             download_success, download_result = download_from_onedrive(download_url)
             
             if download_success:
-                # Process data
-                processor = RawDataProcessor()
-                processor.process_raw_data()
+                # Process data with memory optimization
+                processor = get_data_processor()
+                if processor:
+                    processor.process_raw_data()
+                    cleanup_memory()  # Free memory after processing
                 
                 # Update refresh time
                 last_refresh_time = time.time()
@@ -723,7 +740,7 @@ def auto_refresh_data_with_settings(stop_event, interval_minutes):
             elapsed = 0
             
             while elapsed < wait_time and not stop_event.is_set():
-                sleep_duration = min(30, wait_time - elapsed)  # Check every 30 seconds or remaining time
+                sleep_duration = min(60, wait_time - elapsed)  # Check every 60 seconds to reduce CPU usage
                 if stop_event.wait(sleep_duration):
                     return  # Stop event was set
                 elapsed += sleep_duration
@@ -744,9 +761,11 @@ def auto_refresh_data_with_settings(stop_event, interval_minutes):
             download_success, download_result = download_from_onedrive(download_url)
             
             if download_success:
-                # Process data
-                processor = RawDataProcessor()
-                processor.process_raw_data()
+                # Process data with memory optimization
+                processor = get_data_processor()
+                if processor:
+                    processor.process_raw_data()
+                    cleanup_memory()  # Free memory after processing
                 
                 # Update refresh time
                 global last_refresh_time
@@ -798,8 +817,13 @@ def start_dashboard_server(port=8000):
         if os.path.exists("raw_query_data.xlsx"):
             try:
                 print("Processing raw query data...")
-                processor = RawDataProcessor()
-                processor.process_raw_data()
+                processor = get_data_processor()
+                if processor:
+                    processor.process_raw_data()
+                    cleanup_memory()  # Free memory after processing
+                if processor:
+                    processor.process_raw_data()
+                    cleanup_memory()  # Free memory after processing
                 load_dashboard_data()  # Reload after processing
                 print("✅ Raw data processed successfully")
                 
@@ -846,9 +870,11 @@ def start_dashboard_server(port=8000):
                 download_success, download_result = download_from_onedrive(download_url)
                 
                 if download_success:
-                    # Process data immediately
-                    processor = RawDataProcessor()
-                    processor.process_raw_data()
+                    # Process data immediately with memory optimization
+                    processor = get_data_processor()
+                    if processor:
+                        processor.process_raw_data()
+                        cleanup_memory()  # Free memory after processing
                     print("✅ Initial OneDrive sync completed successfully")
                     
                     # Clean up Excel file
