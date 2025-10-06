@@ -1119,12 +1119,12 @@
                     if (settings.mode && settings.mode === 'advanced' && settings.advanced_schedule) {
                         // Load advanced mode
                         document.getElementById('refreshMode').value = 'advanced';
-                        showAdvancedSchedule();
+                        changeRefreshMode(); // Use existing function instead of showAdvancedSchedule()
                         populateAdvancedSettings(settings.advanced_schedule);
                     } else {
                         // Load simple mode
                         document.getElementById('refreshMode').value = 'simple';
-                        showSimpleSchedule();
+                        changeRefreshMode(); // Use existing function instead of showSimpleSchedule()
                         document.getElementById('simpleInterval').value = settings.simple_interval_minutes || settings.interval_minutes || 120;
                     }
                     
