@@ -59,8 +59,38 @@ auto_refresh_settings = {
     "enabled": True,
     "interval_minutes": 120,  # Default to 2 hours to reduce CPU usage
     "thread": None,
-    "stop_event": None
+    "stop_event": None,
+    "last_refresh_time": None
 }
+
+def load_auto_refresh_settings():
+    """Load auto-refresh settings from file"""
+    global auto_refresh_settings
+    try:
+        if os.path.exists('auto_refresh_config.json'):
+            with open('auto_refresh_config.json', 'r', encoding='utf-8') as f:
+                saved_settings = json.load(f)
+                # Only load the persistent settings, not thread-related ones
+                auto_refresh_settings["enabled"] = saved_settings.get("enabled", True)
+                auto_refresh_settings["interval_minutes"] = saved_settings.get("interval_minutes", 120)
+                auto_refresh_settings["last_refresh_time"] = saved_settings.get("last_refresh_time", None)
+                print(f"Loaded auto-refresh settings: Enabled={auto_refresh_settings['enabled']}, Interval={auto_refresh_settings['interval_minutes']} minutes")
+    except Exception as e:
+        print(f"Error loading auto-refresh settings: {e}")
+
+def save_auto_refresh_settings():
+    """Save auto-refresh settings to file"""
+    try:
+        settings_to_save = {
+            "enabled": auto_refresh_settings["enabled"],
+            "interval_minutes": auto_refresh_settings["interval_minutes"],
+            "last_refresh_time": auto_refresh_settings.get("last_refresh_time", None)
+        }
+        with open('auto_refresh_config.json', 'w', encoding='utf-8') as f:
+            json.dump(settings_to_save, f, indent=2)
+        print(f"Saved auto-refresh settings: {settings_to_save}")
+    except Exception as e:
+        print(f"Error saving auto-refresh settings: {e}")
 
 def load_dashboard_data():
     """Load dashboard data from JSON file"""
@@ -545,16 +575,28 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         try:
             global auto_refresh_settings
             
-            # Calculate next refresh time
+            # Calculate next refresh time more accurately
             next_refresh = None
+            time_until_next = None
             if auto_refresh_settings["enabled"] and auto_refresh_settings["thread"] and auto_refresh_settings["thread"].is_alive():
-                next_refresh_time = time.time() + (auto_refresh_settings["interval_minutes"] * 60)
-                next_refresh = time.strftime('%H:%M:%S', time.localtime(next_refresh_time))
+                last_refresh = auto_refresh_settings.get("last_refresh_time")
+                if last_refresh:
+                    # Calculate based on last actual refresh time
+                    next_refresh_time = last_refresh + (auto_refresh_settings["interval_minutes"] * 60)
+                    time_until_next = max(0, int(next_refresh_time - time.time()))
+                    next_refresh = time.strftime('%H:%M:%S', time.localtime(next_refresh_time))
+                else:
+                    # Fallback to current time + interval
+                    next_refresh_time = time.time() + (auto_refresh_settings["interval_minutes"] * 60)
+                    time_until_next = auto_refresh_settings["interval_minutes"] * 60
+                    next_refresh = time.strftime('%H:%M:%S', time.localtime(next_refresh_time))
             
             response = {
                 "enabled": auto_refresh_settings["enabled"],
                 "interval_minutes": auto_refresh_settings["interval_minutes"],
                 "next_refresh": next_refresh,
+                "time_until_next_seconds": time_until_next,
+                "last_refresh_time": auto_refresh_settings.get("last_refresh_time"),
                 "thread_active": auto_refresh_settings["thread"] and auto_refresh_settings["thread"].is_alive()
             }
             
@@ -635,7 +677,12 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             # Update settings
             auto_refresh_settings["enabled"] = enabled
             auto_refresh_settings["interval_minutes"] = interval_minutes
-            print(f"📝 Updated settings: {auto_refresh_settings}")
+            auto_refresh_settings["last_refresh_time"] = time.time()
+            
+            # Save settings to file for persistence
+            save_auto_refresh_settings()
+            
+            print(f"📝 Updated and saved settings: {auto_refresh_settings}")
             
             # Start new thread if enabled
             if enabled:
@@ -852,8 +899,12 @@ def auto_refresh_data_with_settings(stop_event, interval_minutes):
                     cleanup_memory()  # Free memory after processing
                 
                 # Update refresh time
-                global last_refresh_time
+                global last_refresh_time, auto_refresh_settings
                 last_refresh_time = time.time()
+                auto_refresh_settings["last_refresh_time"] = last_refresh_time
+                
+                # Save updated settings with refresh time
+                save_auto_refresh_settings()
                 
                 print(f"✅ Automatic refresh completed successfully at {time.strftime('%Y-%m-%d %H:%M:%S')}")
                 
@@ -877,6 +928,9 @@ def start_dashboard_server(port=8000):
     try:
         # Clean up any leftover files from previous runs
         cleanup_temp_files()
+        
+        # Load auto-refresh settings from file
+        load_auto_refresh_settings()
         
         # Check if we have existing dashboard data
         if os.path.exists("dashboard_data.json"):
