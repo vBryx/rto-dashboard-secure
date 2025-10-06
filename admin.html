@@ -575,7 +575,7 @@
             try {
                 const response = await fetch('/admin/auto-refresh-settings', {
                     headers: {
-                        'Authorization': `Bearer ${sessionToken}`
+                        'Authorization': `Bearer ${authToken}`
                     }
                 });
                 
@@ -634,7 +634,7 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${sessionToken}`
+                        'Authorization': `Bearer ${authToken}`
                     },
                     body: JSON.stringify({
                         enabled: enabled,
@@ -692,7 +692,7 @@
             try {
                 const response = await fetch('/admin/test-settings', {
                     headers: {
-                        'Authorization': `Bearer ${sessionToken}`
+                        'Authorization': `Bearer ${authToken}`
                     }
                 });
                 
@@ -709,7 +709,7 @@
         
         // Load auto-refresh settings on page load
         window.addEventListener('load', () => {
-            if (sessionToken) {
+            if (authToken) {
                 loadAutoRefreshSettings();
             }
         });

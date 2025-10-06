@@ -205,6 +205,8 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self.get_auto_refresh_settings()
         elif self.path == '/admin/test-settings':
             self.test_auto_refresh_settings()
+        elif self.path == '/' or self.path == '/index.html':
+            self.serve_main_dashboard()
         else:
             super().do_GET()
     
@@ -229,19 +231,48 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
     
     def serve_admin_panel(self):
-        """Serve the admin panel HTML"""
+        """Serve the admin panel HTML with cache busting"""
         try:
             with open('admin.html', 'r', encoding='utf-8') as f:
                 content = f.read()
             
+            # Add cache busting timestamp
+            cache_buster = str(int(time.time()))
+            content = content.replace('</head>', f'<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">\n<meta http-equiv="Pragma" content="no-cache">\n<meta http-equiv="Expires" content="0">\n<meta name="cache-buster" content="{cache_buster}">\n</head>')
+            
             self.send_response(200)
             self.send_header('Content-type', 'text/html; charset=utf-8')
+            self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+            self.send_header('Pragma', 'no-cache')
+            self.send_header('Expires', '0')
             self.end_headers()
             self.wfile.write(content.encode())
         except FileNotFoundError:
             self.send_error(404, "Admin panel not found")
         except Exception as e:
             self.send_error(500, f"Error loading admin panel: {str(e)}")
+    
+    def serve_main_dashboard(self):
+        """Serve the main dashboard HTML with cache busting"""
+        try:
+            with open('index.html', 'r', encoding='utf-8') as f:
+                content = f.read()
+            
+            # Add cache busting timestamp
+            cache_buster = str(int(time.time()))
+            content = content.replace('</head>', f'<meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">\n<meta http-equiv="Pragma" content="no-cache">\n<meta http-equiv="Expires" content="0">\n<meta name="cache-buster" content="{cache_buster}">\n</head>')
+            
+            self.send_response(200)
+            self.send_header('Content-type', 'text/html; charset=utf-8')
+            self.send_header('Cache-Control', 'no-cache, no-store, must-revalidate')
+            self.send_header('Pragma', 'no-cache')
+            self.send_header('Expires', '0')
+            self.end_headers()
+            self.wfile.write(content.encode())
+        except FileNotFoundError:
+            self.send_error(404, "Dashboard not found")
+        except Exception as e:
+            self.send_error(500, f"Error loading dashboard: {str(e)}")
     
     def admin_login(self):
         """Handle admin login"""
