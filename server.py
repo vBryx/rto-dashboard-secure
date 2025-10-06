@@ -761,12 +761,18 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             
             response = {
                 "enabled": auto_refresh_settings["enabled"],
+                "mode": auto_refresh_settings.get("mode", "simple"),
+                "simple_interval_minutes": auto_refresh_settings.get("simple_interval_minutes", 120),
                 "interval_minutes": current_interval,
                 "next_refresh": next_refresh,
                 "time_until_next_seconds": time_until_next,
                 "last_refresh_time": auto_refresh_settings.get("last_refresh_time"),
                 "thread_active": auto_refresh_settings["thread"] and auto_refresh_settings["thread"].is_alive()
             }
+            
+            # Include advanced schedule if present
+            if "advanced_schedule" in auto_refresh_settings:
+                response["advanced_schedule"] = auto_refresh_settings["advanced_schedule"]
             
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
