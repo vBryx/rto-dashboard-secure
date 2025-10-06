@@ -866,19 +866,77 @@
             return settings;
         }
         
+        function populateAdvancedSettings(schedule) {
+            if (!schedule) return;
+            
+            console.log('Populating advanced settings:', schedule); // Debug log
+            
+            // Set timezone
+            if (schedule.timezone) {
+                document.getElementById('timezone').value = schedule.timezone;
+            }
+            
+            // Set work days
+            if (schedule.work_days && schedule.work_days.days) {
+                // First uncheck all work day checkboxes
+                document.querySelectorAll('.days-selector input[type="checkbox"]:not(.weekend-day)').forEach(checkbox => {
+                    checkbox.checked = false;
+                });
+                // Then check the selected work days
+                schedule.work_days.days.forEach(day => {
+                    const checkbox = document.querySelector(`.days-selector input[value="${day}"]:not(.weekend-day)`);
+                    if (checkbox) checkbox.checked = true;
+                });
+                
+                // Set work hours
+                if (schedule.work_days.work_hours) {
+                    document.getElementById('workHoursStart').value = schedule.work_days.work_hours.start || '08:00';
+                    document.getElementById('workHoursEnd').value = schedule.work_days.work_hours.end || '17:00';
+                    document.getElementById('workHoursInterval').value = schedule.work_days.work_hours.interval_minutes || 10;
+                }
+                
+                // Set after hours interval
+                if (schedule.work_days.after_hours) {
+                    document.getElementById('afterHoursInterval').value = schedule.work_days.after_hours.interval_minutes || 180;
+                }
+            }
+            
+            // Set weekend days
+            if (schedule.weekend_days && schedule.weekend_days.days) {
+                // First uncheck all weekend checkboxes
+                document.querySelectorAll('.weekend-day').forEach(checkbox => {
+                    checkbox.checked = false;
+                });
+                // Then check the selected weekend days
+                schedule.weekend_days.days.forEach(day => {
+                    const checkbox = document.querySelector(`.weekend-day[value="${day}"]`);
+                    if (checkbox) checkbox.checked = true;
+                });
+                
+                // Set weekend interval
+                document.getElementById('weekendInterval').value = schedule.weekend_days.interval_minutes || 240;
+            }
+        }
+        
         function showAdminPanel() {
             document.getElementById('loginForm').style.display = 'none';
             document.getElementById('adminPanel').style.display = 'block';
             loadStatus();
+            loadAutoRefreshSettings(); // Load settings when admin panel is shown
             startStatusPolling();
+            resetActivityTimer(); // Start activity tracking when admin panel is shown
+        }
+        
+        function hideAdminPanel() {
+            document.getElementById('loginForm').style.display = 'block';
+            document.getElementById('adminPanel').style.display = 'none';
+            document.getElementById('password').value = '';
         }
         
         function logout() {
             localStorage.removeItem('adminToken');
             authToken = null;
-            document.getElementById('loginForm').style.display = 'block';
-            document.getElementById('adminPanel').style.display = 'none';
-            document.getElementById('password').value = '';
+            hideAdminPanel();
         }
         
         async function loadStatus() {
@@ -1052,13 +1110,30 @@
                 
                 if (response.ok) {
                     const settings = await response.json();
+                    console.log('Loaded settings:', settings); // Debug log
+                    
+                    // Set basic enabled state
                     document.getElementById('autoRefreshEnabled').checked = settings.enabled;
-                    document.getElementById('refreshInterval').value = settings.interval_minutes;
+                    
+                    // Check if we have advanced settings
+                    if (settings.mode && settings.mode === 'advanced' && settings.advanced_schedule) {
+                        // Load advanced mode
+                        document.getElementById('refreshMode').value = 'advanced';
+                        showAdvancedSchedule();
+                        populateAdvancedSettings(settings.advanced_schedule);
+                    } else {
+                        // Load simple mode
+                        document.getElementById('refreshMode').value = 'simple';
+                        showSimpleSchedule();
+                        document.getElementById('simpleInterval').value = settings.simple_interval_minutes || settings.interval_minutes || 120;
+                    }
+                    
                     updateAutoRefreshStatus(settings);
                 } else {
                     addLog('Failed to load auto-refresh settings', 'error');
                 }
             } catch (error) {
+                console.error('Error loading auto-refresh settings:', error);
                 addLog('Error loading auto-refresh settings', 'error');
             }
         }
