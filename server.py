@@ -12,6 +12,8 @@ from urllib.parse import urlparse, parse_qs
 # Lazy import for heavy dependencies
 import gc
 import sys
+import platform
+import subprocess
 
 def get_data_processor():
     """Lazy load the data processor to save memory when not processing data"""
@@ -55,10 +57,29 @@ admin_sessions = {}
 last_refresh_time = 0
 dashboard_data = {}
 
-# Auto-refresh settings - optimized for cost efficiency
+# Advanced auto-refresh settings with time-based scheduling
 auto_refresh_settings = {
     "enabled": True,
-    "interval_minutes": 120,  # Default to 2 hours to reduce CPU usage
+    "mode": "advanced",  # "simple" or "advanced"
+    "simple_interval_minutes": 120,  # For simple mode
+    "advanced_schedule": {
+        "work_days": {  # Sunday to Thursday (0=Sunday, 6=Saturday)
+            "days": [0, 1, 2, 3, 4],  # Sunday to Thursday
+            "work_hours": {
+                "start": "08:00",  # 8 AM
+                "end": "17:00",    # 5 PM
+                "interval_minutes": 10
+            },
+            "after_hours": {
+                "interval_minutes": 180  # 3 hours
+            }
+        },
+        "weekend_days": {  # Friday and Saturday
+            "days": [5, 6],  # Friday and Saturday
+            "interval_minutes": 240  # 4 hours
+        },
+        "timezone": "Asia/Riyadh"  # Default timezone
+    },
     "thread": None,
     "stop_event": None,
     "last_refresh_time": None
@@ -589,47 +610,82 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 os.remove('dashboard_data.json')
                 print("✅ dashboard_data.json deleted")
             
-            # Step 3: Delete auto-refresh config to reset settings
+            # Step 3: Delete raw Excel file to force fresh download
+            if os.path.exists('raw_query_data.xlsx'):
+                os.remove('raw_query_data.xlsx')
+                print("✅ raw_query_data.xlsx deleted - will force fresh download")
+            
+            # Step 4: Delete auto-refresh config to reset settings
             if os.path.exists('auto_refresh_config.json'):
                 os.remove('auto_refresh_config.json')
                 print("✅ auto_refresh_config.json cleared")
             
-            # Step 4: Force garbage collection
+            # Step 5: Force garbage collection
             import gc
             gc.collect()
             print("✅ Garbage collection completed")
             
-            # Step 5: Reset refresh timer
+            # Step 6: Reset refresh timer
             last_refresh_time = 0
             print("✅ Refresh timer reset")
             
-            # Step 6: Regenerate data if raw data exists
-            if os.path.exists('raw_query_data.xlsx'):
-                print("🔄 Regenerating data with fresh calculations...")
-                processor = get_data_processor()
-                if processor:
-                    processor.process_raw_data()
-                    print("✅ Data regenerated successfully")
-                else:
-                    print("⚠️ Could not load data processor")
-            else:
-                print("⚠️ No raw data file found - data will be empty until refresh")
+            # Step 7: Force fresh download and regenerate data
+            print("🔄 Forcing fresh download and regeneration with updated counting logic...")
             
-            # Step 7: Reload dashboard data
+            # Download fresh data
+            config = load_config()
+            download_url = config['onedrive'].get('download_url', '')
+            
+            if download_url and download_url != 'USE_ENVIRONMENT_VARIABLE':
+                download_success, download_result = download_from_onedrive(download_url)
+                
+                if download_success:
+                    print("✅ Fresh data downloaded successfully")
+                    
+                    # Process with updated counting logic
+                    processor = get_data_processor()
+                    if processor:
+                        processor.process_raw_data()
+                        print("✅ Data regenerated with UPDATED COUNTING LOGIC")
+                        
+                        # Clean up Excel file for privacy
+                        try:
+                            if os.path.exists('raw_query_data.xlsx'):
+                                os.remove('raw_query_data.xlsx')
+                                print("✅ Excel file cleaned up for privacy")
+                        except Exception as e:
+                            print(f"⚠️ Excel cleanup warning: {e}")
+                    else:
+                        print("⚠️ Could not load data processor")
+                else:
+                    print(f"❌ Fresh download failed: {download_result}")
+            else:
+                print("⚠️ OneDrive URL not configured - cannot download fresh data")
+            
+            # Step 8: Reload dashboard data
             load_dashboard_data()
-            print("✅ Dashboard data reloaded")
+            print("✅ Dashboard data reloaded with updated counting")
+            
+            # Get the new count to verify
+            new_count = "Unknown"
+            if dashboard_data and 'overview' in dashboard_data:
+                new_count = dashboard_data['overview'].get('total_population', 'Unknown')
             
             response = {
                 "success": True,
-                "message": "Cache forcefully cleared and data regenerated!",
+                "message": f"Cache forcefully cleared and data regenerated! New count: {new_count}",
                 "timestamp": datetime.now().isoformat(),
+                "new_population_count": new_count,
                 "actions_performed": [
                     "In-memory cache cleared",
                     "dashboard_data.json deleted",
+                    "raw_query_data.xlsx deleted for fresh download",
                     "auto_refresh_config.json cleared", 
                     "Garbage collection performed",
                     "Refresh timer reset",
-                    "Data regenerated" if os.path.exists('raw_query_data.xlsx') else "No raw data to regenerate",
+                    "Fresh data downloaded from OneDrive",
+                    "Data regenerated with UPDATED COUNTING LOGIC",
+                    "Excel file cleaned up for privacy",
                     "Dashboard data reloaded"
                 ]
             }
@@ -730,7 +786,7 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self.send_error(500, f"Error testing settings: {str(e)}")
     
     def set_auto_refresh_settings(self):
-        """Set auto-refresh settings"""
+        """Set advanced auto-refresh settings with time-based scheduling"""
         auth_header = self.headers.get('Authorization')
         if not is_admin_authenticated(auth_header):
             self.send_error(401, "Unauthorized")
@@ -742,18 +798,12 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
                 raise ValueError("No data received")
                 
             post_data = self.rfile.read(content_length)
-            data = json.loads(post_data.decode('utf-8'))
+            new_settings = json.loads(post_data.decode('utf-8'))
             
-            enabled = data.get('enabled', False)
-            interval_minutes = int(data.get('interval_minutes', 120))
+            enabled = new_settings.get('enabled', False)
+            mode = new_settings.get('mode', 'simple')
             
-            print(f"🔧 Setting auto-refresh: enabled={enabled}, interval={interval_minutes}min")
-            
-            # Validate interval
-            if interval_minutes < 5:
-                interval_minutes = 5
-            elif interval_minutes > 1440:  # 24 hours max
-                interval_minutes = 1440
+            print(f"🔧 Setting advanced auto-refresh: enabled={enabled}, mode={mode}")
             
             global auto_refresh_settings
             
@@ -765,47 +815,76 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             except Exception as e:
                 print(f"⚠️ Warning stopping thread: {e}")
             
-            # Update settings
+            # Update settings with new structure
             auto_refresh_settings["enabled"] = enabled
-            auto_refresh_settings["interval_minutes"] = interval_minutes
+            auto_refresh_settings["mode"] = mode
+            auto_refresh_settings["simple_interval_minutes"] = new_settings.get('simple_interval_minutes', 120)
+            
+            # Update advanced schedule if provided
+            if mode == 'advanced' and 'advanced_schedule' in new_settings:
+                auto_refresh_settings["advanced_schedule"] = new_settings['advanced_schedule']
+                print(f"📅 Updated advanced schedule: {new_settings['advanced_schedule']}")
+            
             auto_refresh_settings["last_refresh_time"] = time.time()
             
             # Save settings to file for persistence
             save_auto_refresh_settings()
             
-            print(f"📝 Updated and saved settings: {auto_refresh_settings}")
+            print(f"📝 Updated and saved advanced settings")
             
             # Start new thread if enabled
             if enabled:
                 try:
                     auto_refresh_settings["stop_event"] = threading.Event()
+                    
+                    # Use current interval for initial start (will dynamically adjust)
+                    initial_interval = auto_refresh_settings.get("simple_interval_minutes", 120)
+                    if mode == 'advanced':
+                        initial_interval = get_next_refresh_interval()  # Get current interval
+                    
                     auto_refresh_settings["thread"] = threading.Thread(
                         target=auto_refresh_data_with_settings, 
-                        args=(auto_refresh_settings["stop_event"], interval_minutes),
+                        args=(auto_refresh_settings["stop_event"], initial_interval),
                         daemon=True
                     )
                     auto_refresh_settings["thread"].start()
-                    print(f"🔄 Auto-refresh enabled: Every {interval_minutes} minutes")
+                    
+                    if mode == 'advanced':
+                        print(f"🔄 Advanced auto-refresh enabled with dynamic scheduling")
+                    else:
+                        print(f"🔄 Simple auto-refresh enabled: Every {initial_interval} minutes")
+                        
                 except Exception as e:
                     print(f"❌ Error starting auto-refresh thread: {e}")
                     raise e
             else:
                 print("⏸️ Auto-refresh disabled")
             
-            # Calculate next refresh time
+            # Calculate next refresh info
             next_refresh = None
+            current_interval = None
+            
             if enabled:
-                next_refresh_time = time.time() + (interval_minutes * 60)
-                next_refresh = time.strftime('%H:%M:%S', time.localtime(next_refresh_time))
+                if mode == 'advanced':
+                    current_interval = get_next_refresh_interval()
+                    next_refresh_time = time.time() + (current_interval * 60)
+                    next_refresh = time.strftime('%H:%M:%S', time.localtime(next_refresh_time))
+                else:
+                    interval_minutes = auto_refresh_settings["simple_interval_minutes"]
+                    next_refresh_time = time.time() + (interval_minutes * 60)
+                    next_refresh = time.strftime('%H:%M:%S', time.localtime(next_refresh_time))
+                    current_interval = interval_minutes
             
             response = {
                 "success": True,
-                "message": f"Auto-refresh {'enabled' if enabled else 'disabled'} with {interval_minutes} minute interval",
+                "message": f"Advanced auto-refresh {'enabled' if enabled else 'disabled'} in {mode} mode",
                 "settings": {
                     "enabled": enabled,
-                    "interval_minutes": interval_minutes,
+                    "mode": mode,
+                    "current_interval_minutes": current_interval,
                     "next_refresh": next_refresh,
-                    "thread_active": enabled and auto_refresh_settings["thread"] and auto_refresh_settings["thread"].is_alive()
+                    "thread_active": enabled and auto_refresh_settings["thread"] and auto_refresh_settings["thread"].is_alive(),
+                    "advanced_schedule_active": mode == 'advanced'
                 }
             }
             
@@ -815,10 +894,10 @@ class DashboardHandler(http.server.SimpleHTTPRequestHandler):
             self.wfile.write(json.dumps(response).encode())
             
         except Exception as e:
-            print(f"❌ Error saving auto-refresh settings: {str(e)}")
+            print(f"❌ Error saving advanced auto-refresh settings: {str(e)}")
             response = {
                 "success": False,
-                "message": f"Error saving settings: {str(e)}"
+                "message": f"Error saving advanced settings: {str(e)}"
             }
             self.send_response(500)
             self.send_header('Content-type', 'application/json')
@@ -953,17 +1032,85 @@ def auto_refresh_data():
             print(f"❌ Auto-refresh error: {e}")
             # Continue the loop even if there's an error
 
-def auto_refresh_data_with_settings(stop_event, interval_minutes):
-    """Auto-refresh data with configurable settings"""
+def get_next_refresh_interval():
+    """Calculate next refresh interval based on advanced scheduling"""
+    global auto_refresh_settings
+    
+    if auto_refresh_settings["mode"] == "simple":
+        return auto_refresh_settings["simple_interval_minutes"]
+    
+    # Advanced mode - time-based scheduling
+    try:
+        from datetime import datetime, timedelta
+        import pytz
+        
+        # Get current time in configured timezone
+        timezone_str = auto_refresh_settings["advanced_schedule"].get("timezone", "Asia/Riyadh")
+        try:
+            tz = pytz.timezone(timezone_str)
+            now = datetime.now(tz)
+        except:
+            # Fallback to system time if timezone is invalid
+            now = datetime.now()
+        
+        current_weekday = now.weekday()  # 0=Monday, 6=Sunday
+        # Convert to our format: 0=Sunday, 6=Saturday
+        current_weekday = (current_weekday + 1) % 7
+        
+        schedule = auto_refresh_settings["advanced_schedule"]
+        
+        # Check if it's a weekend day
+        if current_weekday in schedule["weekend_days"]["days"]:
+            interval = schedule["weekend_days"]["interval_minutes"]
+            print(f"⏰ Weekend schedule: {interval} minutes")
+            return interval
+        
+        # Check if it's a work day
+        if current_weekday in schedule["work_days"]["days"]:
+            work_hours = schedule["work_days"]["work_hours"]
+            
+            # Parse work hours
+            start_time = datetime.strptime(work_hours["start"], "%H:%M").time()
+            end_time = datetime.strptime(work_hours["end"], "%H:%M").time()
+            
+            current_time = now.time()
+            
+            # Check if within work hours
+            if start_time <= current_time <= end_time:
+                interval = work_hours["interval_minutes"]
+                print(f"⏰ Work hours schedule: {interval} minutes")
+                return interval
+            else:
+                interval = schedule["work_days"]["after_hours"]["interval_minutes"]
+                print(f"⏰ After hours schedule: {interval} minutes")
+                return interval
+        
+        # Fallback to simple mode if day not configured
+        print("⚠️ Day not configured, using simple mode")
+        return auto_refresh_settings["simple_interval_minutes"]
+        
+    except Exception as e:
+        print(f"⚠️ Error calculating interval, using simple mode: {e}")
+        return auto_refresh_settings["simple_interval_minutes"]
+
+def auto_refresh_data_with_settings(stop_event, initial_interval_minutes):
+    """Advanced auto-refresh with dynamic time-based scheduling"""
+    print("🕒 Advanced auto-refresh started with dynamic scheduling")
+    
     while not stop_event.is_set():
         try:
-            # Wait for the specified interval, but check for stop event every 30 seconds
-            wait_time = interval_minutes * 60  # Convert to seconds
-            elapsed = 0
+            # Get current interval based on schedule
+            current_interval = get_next_refresh_interval()
+            wait_time = current_interval * 60  # Convert to seconds
             
+            print(f"⏱️ Next refresh in {current_interval} minutes (mode: {auto_refresh_settings['mode']})")
+            
+            # Wait for the calculated interval
+            elapsed = 0
             while elapsed < wait_time and not stop_event.is_set():
-                sleep_duration = min(60, wait_time - elapsed)  # Check every 60 seconds to reduce CPU usage
+                sleep_duration = min(60, wait_time - elapsed)  # Check every 60 seconds
                 if stop_event.wait(sleep_duration):
+                    print("🛑 Auto-refresh stopped by user")
                     return  # Stop event was set
                 elapsed += sleep_duration
             
@@ -977,7 +1124,7 @@ def auto_refresh_data_with_settings(stop_event, interval_minutes):
                 print("⚠️ Auto-refresh skipped: OneDrive URL not configured")
                 continue
                 
-            print(f"🔄 Starting automatic data refresh (every {interval_minutes} minutes)...")
+            print(f"🔄 Starting automatic data refresh (interval: {current_interval} minutes)...")
             
             # Download from OneDrive
             download_success, download_result = download_from_onedrive(download_url)

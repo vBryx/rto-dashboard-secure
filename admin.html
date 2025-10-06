@@ -313,6 +313,115 @@
             color: #f39c12;
             font-weight: bold;
         }
+
+        /* Advanced Scheduling Styles */
+        .mode-select, .timezone-select {
+            width: 100%;
+            padding: 8px 12px;
+            border: 2px solid #bdc3c7;
+            border-radius: 5px;
+            font-size: 14px;
+            background: white;
+        }
+
+        .schedule-section {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 15px 0;
+        }
+
+        .schedule-section h4 {
+            color: #2c3e50;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 8px;
+        }
+
+        .schedule-group {
+            background: white;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+
+        .schedule-group h5 {
+            color: #495057;
+            margin-bottom: 12px;
+            font-size: 16px;
+        }
+
+        .days-selector {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-bottom: 15px;
+        }
+
+        .days-selector label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            background: #e9ecef;
+            padding: 8px 12px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .days-selector label:hover {
+            background: #3498db;
+            color: white;
+        }
+
+        .days-selector input:checked + label,
+        .days-selector label:has(input:checked) {
+            background: #27ae60;
+            color: white;
+        }
+
+        .time-settings {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+        }
+
+        .settings-actions {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+            padding-top: 15px;
+            border-top: 2px solid #e9ecef;
+        }
+
+        /* Auto-logout notification */
+        .auto-logout-warning {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: #f39c12;
+            color: white;
+            padding: 12px 20px;
+            border-radius: 6px;
+            z-index: 1000;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+
+        .auto-logout-warning .countdown {
+            font-weight: bold;
+            font-size: 16px;
+        }
     </style>
 </head>
 <body>
@@ -373,7 +482,9 @@
                 
                 <!-- Auto-Refresh Settings Section -->
                 <div class="auto-refresh-section">
-                    <h3><i class="fas fa-clock"></i> Auto-Refresh Settings</h3>
+                    <h3><i class="fas fa-clock"></i> Advanced Auto-Refresh Settings</h3>
+                    
+                    <!-- Enable/Disable -->
                     <div class="auto-refresh-controls">
                         <div class="control-group">
                             <label>Enable Auto-Refresh:</label>
@@ -382,17 +493,103 @@
                                 <span class="slider"></span>
                             </label>
                         </div>
+                        
+                        <!-- Mode Selection -->
                         <div class="control-group">
-                            <label>Refresh Interval (minutes):</label>
-                            <input type="number" id="refreshInterval" class="interval-input" min="5" max="1440" value="60" onchange="updateInterval()">
+                            <label>Refresh Mode:</label>
+                            <select id="refreshMode" onchange="changeRefreshMode()" class="mode-select">
+                                <option value="simple">Simple - Fixed Interval</option>
+                                <option value="advanced">Advanced - Time-Based Scheduling</option>
+                            </select>
                         </div>
                     </div>
-                    <button id="saveSettingsBtn" class="btn save-settings-btn" onclick="saveAutoRefreshSettings()">
-                        <i class="fas fa-save"></i> Save Settings
-                    </button>
-                    <button class="btn" style="background: #3498db; margin-top: 10px;" onclick="testAutoRefreshSettings()">
-                        <i class="fas fa-bug"></i> Debug Settings
-                    </button>
+
+                    <!-- Simple Mode Settings -->
+                    <div id="simpleSettings" class="schedule-section">
+                        <h4><i class="fas fa-clock"></i> Simple Mode</h4>
+                        <div class="control-group">
+                            <label>Refresh Interval (minutes):</label>
+                            <input type="number" id="simpleInterval" class="interval-input" min="5" max="1440" value="120">
+                        </div>
+                    </div>
+
+                    <!-- Advanced Mode Settings -->
+                    <div id="advancedSettings" class="schedule-section" style="display: none;">
+                        <h4><i class="fas fa-calendar-alt"></i> Advanced Time-Based Scheduling</h4>
+                        
+                        <!-- Timezone -->
+                        <div class="control-group">
+                            <label>Timezone:</label>
+                            <select id="timezone" class="timezone-select">
+                                <option value="Asia/Riyadh">Asia/Riyadh (GMT+3)</option>
+                                <option value="UTC">UTC (GMT+0)</option>
+                                <option value="America/New_York">America/New_York (EST/EDT)</option>
+                                <option value="Europe/London">Europe/London (GMT/BST)</option>
+                                <option value="Asia/Dubai">Asia/Dubai (GMT+4)</option>
+                                <option value="Asia/Kuwait">Asia/Kuwait (GMT+3)</option>
+                            </select>
+                        </div>
+
+                        <!-- Work Days Configuration -->
+                        <div class="schedule-group">
+                            <h5><i class="fas fa-briefcase"></i> Work Days (Sunday to Thursday)</h5>
+                            <div class="days-selector">
+                                <label><input type="checkbox" value="0" checked> Sun</label>
+                                <label><input type="checkbox" value="1" checked> Mon</label>
+                                <label><input type="checkbox" value="2" checked> Tue</label>
+                                <label><input type="checkbox" value="3" checked> Wed</label>
+                                <label><input type="checkbox" value="4" checked> Thu</label>
+                                <label><input type="checkbox" value="5"> Fri</label>
+                                <label><input type="checkbox" value="6"> Sat</label>
+                            </div>
+                            
+                            <div class="time-settings">
+                                <div class="control-group">
+                                    <label>Work Hours Start:</label>
+                                    <input type="time" id="workHoursStart" value="08:00">
+                                </div>
+                                <div class="control-group">
+                                    <label>Work Hours End:</label>
+                                    <input type="time" id="workHoursEnd" value="17:00">
+                                </div>
+                                <div class="control-group">
+                                    <label>Work Hours Interval (minutes):</label>
+                                    <input type="number" id="workHoursInterval" min="1" max="360" value="10">
+                                </div>
+                                <div class="control-group">
+                                    <label>After Hours Interval (minutes):</label>
+                                    <input type="number" id="afterHoursInterval" min="30" max="720" value="180">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Weekend Configuration -->
+                        <div class="schedule-group">
+                            <h5><i class="fas fa-calendar-times"></i> Weekend Days (Friday & Saturday)</h5>
+                            <div class="days-selector">
+                                <label><input type="checkbox" value="5" checked class="weekend-day"> Fri</label>
+                                <label><input type="checkbox" value="6" checked class="weekend-day"> Sat</label>
+                            </div>
+                            <div class="control-group">
+                                <label>Weekend Interval (minutes):</label>
+                                <input type="number" id="weekendInterval" min="30" max="720" value="240">
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Action Buttons -->
+                    <div class="settings-actions">
+                        <button id="saveSettingsBtn" class="btn save-settings-btn" onclick="saveAutoRefreshSettings()">
+                            <i class="fas fa-save"></i> Save Settings
+                        </button>
+                        <button class="btn" style="background: #3498db;" onclick="testAutoRefreshSettings()">
+                            <i class="fas fa-bug"></i> Debug Settings
+                        </button>
+                        <button class="btn" style="background: #f39c12;" onclick="previewSchedule()">
+                            <i class="fas fa-eye"></i> Preview Schedule
+                        </button>
+                    </div>
+                    
                     <div id="autoRefreshStatus" class="auto-refresh-status">
                         Auto-refresh is currently disabled. Enable it to automatically sync data at regular intervals.
                     </div>
@@ -417,10 +614,80 @@
         let refreshCooldown = 0;
         let cooldownTimer = null;
         
+        // Auto-logout functionality
+        let lastActivity = Date.now();
+        let autoLogoutTimer = null;
+        let logoutWarningTimer = null;
+        let warningElement = null;
+        const INACTIVITY_TIMEOUT = 3 * 60 * 1000; // 3 minutes in milliseconds
+        const WARNING_TIME = 30 * 1000; // Show warning 30 seconds before logout
+
+        // Reset activity timer
+        function resetActivityTimer() {
+            lastActivity = Date.now();
+            clearTimeout(autoLogoutTimer);
+            clearTimeout(logoutWarningTimer);
+            hideLogoutWarning();
+            
+            if (authToken) {
+                // Set warning timer
+                logoutWarningTimer = setTimeout(showLogoutWarning, INACTIVITY_TIMEOUT - WARNING_TIME);
+                // Set logout timer
+                autoLogoutTimer = setTimeout(autoLogout, INACTIVITY_TIMEOUT);
+            }
+        }
+
+        function showLogoutWarning() {
+            if (!warningElement) {
+                warningElement = document.createElement('div');
+                warningElement.className = 'auto-logout-warning';
+                warningElement.innerHTML = `
+                    <div><strong>⚠️ Auto-Logout Warning</strong></div>
+                    <div>You will be logged out in <span class="countdown">30</span> seconds due to inactivity</div>
+                    <div style="margin-top: 8px;">
+                        <button onclick="resetActivityTimer()" style="background: white; color: #f39c12; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer;">Stay Logged In</button>
+                    </div>
+                `;
+                document.body.appendChild(warningElement);
+            }
+            
+            // Countdown timer
+            let countdown = 30;
+            const countdownElement = warningElement.querySelector('.countdown');
+            const countdownInterval = setInterval(() => {
+                countdown--;
+                countdownElement.textContent = countdown;
+                if (countdown <= 0) {
+                    clearInterval(countdownInterval);
+                }
+            }, 1000);
+        }
+
+        function hideLogoutWarning() {
+            if (warningElement) {
+                warningElement.remove();
+                warningElement = null;
+            }
+        }
+
+        function autoLogout() {
+            hideLogoutWarning();
+            localStorage.removeItem('adminToken');
+            authToken = null;
+            hideAdminPanel();
+            addLog('🚪 Automatically logged out due to inactivity', 'warning');
+        }
+
+        // Track user activity
+        ['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart', 'click'].forEach(event => {
+            document.addEventListener(event, resetActivityTimer, true);
+        });
+        
         // Check if already authenticated
         authToken = localStorage.getItem('adminToken');
         if (authToken) {
             showAdminPanel();
+            resetActivityTimer(); // Start activity tracking
         }
         
         // Login form handler
@@ -450,6 +717,154 @@
                 document.getElementById('loginError').textContent = 'Connection error';
             }
         });
+
+        // Advanced Scheduling Functions
+        function changeRefreshMode() {
+            const mode = document.getElementById('refreshMode').value;
+            const simpleSettings = document.getElementById('simpleSettings');
+            const advancedSettings = document.getElementById('advancedSettings');
+            
+            if (mode === 'simple') {
+                simpleSettings.style.display = 'block';
+                advancedSettings.style.display = 'none';
+            } else {
+                simpleSettings.style.display = 'none';
+                advancedSettings.style.display = 'block';
+            }
+        }
+
+        function previewSchedule() {
+            const mode = document.getElementById('refreshMode').value;
+            
+            if (mode === 'simple') {
+                const interval = document.getElementById('simpleInterval').value;
+                alert(`📅 Simple Schedule Preview:\n\n🔄 Refresh every ${interval} minutes\n⏰ 24/7 operation\n\nCost estimation: ${Math.round(24 * 60 / interval)} refreshes per day`);
+                return;
+            }
+
+            // Advanced mode preview
+            const timezone = document.getElementById('timezone').value;
+            const workStart = document.getElementById('workHoursStart').value;
+            const workEnd = document.getElementById('workHoursEnd').value;
+            const workInterval = document.getElementById('workHoursInterval').value;
+            const afterHoursInterval = document.getElementById('afterHoursInterval').value;
+            const weekendInterval = document.getElementById('weekendInterval').value;
+            
+            // Calculate daily refresh estimates
+            const workHours = calculateHoursBetween(workStart, workEnd);
+            const afterHours = 24 - workHours;
+            
+            const workDayRefreshes = Math.round((workHours * 60) / workInterval + (afterHours * 60) / afterHoursInterval);
+            const weekendRefreshes = Math.round((24 * 60) / weekendInterval);
+            
+            const weeklyRefreshes = (workDayRefreshes * 5) + (weekendRefreshes * 2); // Assuming 5 work days, 2 weekend days
+            
+            const preview = `📅 Advanced Schedule Preview:\n\n` +
+                `🕐 Timezone: ${timezone}\n\n` +
+                `📊 Work Days (Sun-Thu):\n` +
+                `  ⏰ ${workStart} - ${workEnd}: Every ${workInterval} min\n` +
+                `  🌙 After hours: Every ${afterHoursInterval} min\n` +
+                `  📈 ~${workDayRefreshes} refreshes/day\n\n` +
+                `🏖️ Weekend Days (Fri-Sat):\n` +
+                `  🔄 Every ${weekendInterval} min\n` +
+                `  📈 ~${weekendRefreshes} refreshes/day\n\n` +
+                `📊 Weekly Total: ~${weeklyRefreshes} refreshes\n` +
+                `💰 Cost optimization: ${Math.round(((168 * 60 / 120) - weeklyRefreshes) / (168 * 60 / 120) * 100)}% reduction vs 2-hour fixed interval`;
+            
+            alert(preview);
+        }
+
+        function calculateHoursBetween(startTime, endTime) {
+            const start = new Date(`2000-01-01T${startTime}:00`);
+            const end = new Date(`2000-01-01T${endTime}:00`);
+            return (end - start) / (1000 * 60 * 60);
+        }
+
+        function loadAdvancedSettings(settings) {
+            // Load mode
+            document.getElementById('refreshMode').value = settings.mode || 'simple';
+            changeRefreshMode();
+
+            // Load simple settings
+            document.getElementById('simpleInterval').value = settings.simple_interval_minutes || 120;
+
+            // Load advanced settings
+            if (settings.advanced_schedule) {
+                const schedule = settings.advanced_schedule;
+                
+                // Timezone
+                document.getElementById('timezone').value = schedule.timezone || 'Asia/Riyadh';
+                
+                // Work days
+                const workDays = schedule.work_days?.days || [0, 1, 2, 3, 4];
+                document.querySelectorAll('.days-selector input[type="checkbox"]:not(.weekend-day)').forEach(checkbox => {
+                    checkbox.checked = workDays.includes(parseInt(checkbox.value));
+                });
+                
+                // Work hours
+                if (schedule.work_days?.work_hours) {
+                    document.getElementById('workHoursStart').value = schedule.work_days.work_hours.start || '08:00';
+                    document.getElementById('workHoursEnd').value = schedule.work_days.work_hours.end || '17:00';
+                    document.getElementById('workHoursInterval').value = schedule.work_days.work_hours.interval_minutes || 10;
+                }
+                
+                // After hours
+                if (schedule.work_days?.after_hours) {
+                    document.getElementById('afterHoursInterval').value = schedule.work_days.after_hours.interval_minutes || 180;
+                }
+                
+                // Weekend days
+                const weekendDays = schedule.weekend_days?.days || [5, 6];
+                document.querySelectorAll('.weekend-day').forEach(checkbox => {
+                    checkbox.checked = weekendDays.includes(parseInt(checkbox.value));
+                });
+                document.getElementById('weekendInterval').value = schedule.weekend_days?.interval_minutes || 240;
+            }
+        }
+
+        function collectAdvancedSettings() {
+            const mode = document.getElementById('refreshMode').value;
+            const settings = {
+                enabled: document.getElementById('autoRefreshEnabled').checked,
+                mode: mode,
+                simple_interval_minutes: parseInt(document.getElementById('simpleInterval').value)
+            };
+
+            if (mode === 'advanced') {
+                // Collect work days
+                const workDays = [];
+                document.querySelectorAll('.days-selector input[type="checkbox"]:not(.weekend-day):checked').forEach(checkbox => {
+                    workDays.push(parseInt(checkbox.value));
+                });
+
+                // Collect weekend days
+                const weekendDays = [];
+                document.querySelectorAll('.weekend-day:checked').forEach(checkbox => {
+                    weekendDays.push(parseInt(checkbox.value));
+                });
+
+                settings.advanced_schedule = {
+                    work_days: {
+                        days: workDays,
+                        work_hours: {
+                            start: document.getElementById('workHoursStart').value,
+                            end: document.getElementById('workHoursEnd').value,
+                            interval_minutes: parseInt(document.getElementById('workHoursInterval').value)
+                        },
+                        after_hours: {
+                            interval_minutes: parseInt(document.getElementById('afterHoursInterval').value)
+                        }
+                    },
+                    weekend_days: {
+                        days: weekendDays,
+                        interval_minutes: parseInt(document.getElementById('weekendInterval').value)
+                    },
+                    timezone: document.getElementById('timezone').value
+                };
+            }
+
+            return settings;
+        }
         
         function showAdminPanel() {
             document.getElementById('loginForm').style.display = 'none';
@@ -676,10 +1091,9 @@
         }
         
         async function saveAutoRefreshSettings() {
-            const enabled = document.getElementById('autoRefreshEnabled').checked;
-            const interval = parseInt(document.getElementById('refreshInterval').value);
+            const settings = collectAdvancedSettings();
             
-            console.log('Saving settings:', { enabled, interval }); // Debug log
+            console.log('Saving advanced settings:', settings); // Debug log
             
             const saveBtn = document.getElementById('saveSettingsBtn');
             saveBtn.disabled = true;
@@ -692,10 +1106,7 @@
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${authToken}`
                     },
-                    body: JSON.stringify({
-                        enabled: enabled,
-                        interval_minutes: interval
-                    })
+                    body: JSON.stringify(settings)
                 });
                 
                 console.log('Response status:', response.status); // Debug log
@@ -708,7 +1119,8 @@
                 console.log('Response data:', result); // Debug log
                 
                 if (result.success) {
-                    addLog(`Auto-refresh settings saved: ${enabled ? 'Enabled' : 'Disabled'}, Interval: ${interval} minutes`, 'success');
+                    const modeText = settings.mode === 'advanced' ? 'Advanced Scheduling' : `Simple (${settings.simple_interval_minutes} min)`;
+                    addLog(`Auto-refresh settings saved: ${settings.enabled ? 'Enabled' : 'Disabled'}, Mode: ${modeText}`, 'success');
                     updateAutoRefreshStatus(result.settings);
                 } else {
                     addLog(`Failed to save settings: ${result.message}`, 'error');

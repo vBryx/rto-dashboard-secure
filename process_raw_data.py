@@ -47,6 +47,17 @@ class RawDataProcessor:
         # Calculate overview metrics
         dashboard_data["overview"] = self.calculate_overview_metrics(dashboard_data["sectors"])
         
+        # Debug total population count
+        total_pop = dashboard_data["overview"]["total_population"]
+        print(f"🔢 FINAL POPULATION COUNT: {total_pop:,} (using unique National ID counting)")
+        
+        if total_pop == 52300:
+            print("⚠️ WARNING: Still getting 52,300! Unique counting may not be working properly!")
+        elif total_pop == 52299:
+            print("✅ SUCCESS: Correct count of 52,299 achieved with unique counting!")
+        else:
+            print(f"ℹ️ INFO: Population count is {total_pop:,}").
+        
         # Save processed data in root directory (no separate data folder)
         with open('dashboard_data.json', 'w', encoding='utf-8') as f:
             json.dump(dashboard_data, f, indent=2, ensure_ascii=False)
@@ -71,8 +82,12 @@ class RawDataProcessor:
             if pd.isna(phc_name) or phc_name == '':
                 continue
                 
-            # Calculate metrics for this PHC using unique National IDs
+            # Calculate metrics for this PHC using unique National IDs (fixed counting)
             total_population = group['National ID'].nunique()
+            
+            # Debug logging for counting verification
+            if len(group) != total_population:
+                print(f"DEBUG: PHC {phc_name} - Total rows: {len(group)}, Unique IDs: {total_population}, Difference: {len(group) - total_population}")
             
             # Communication metrics - using unique National IDs
             communicated = group[group['Response'].notna()]['National ID'].nunique()
