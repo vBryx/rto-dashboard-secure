@@ -35,6 +35,21 @@ class RawDataProcessor:
             try:
                 df = pd.read_excel(xl, sheet_name=sector, engine='openpyxl')
                 print(f"  - Loaded {len(df)} rows from {sector}")
+                
+                # Remove exact duplicate rows (keep first occurrence)
+                original_count = len(df)
+                df = df.drop_duplicates()
+                if len(df) != original_count:
+                    removed = original_count - len(df)
+                    print(f"  - Removed {removed} duplicate rows, {len(df)} rows remaining")
+                
+                # Remove rows with empty/null National ID (these shouldn't be counted as patients)
+                before_filter = len(df)
+                df = df[df['National ID'].notna() & (df['National ID'] != '')]
+                if len(df) != before_filter:
+                    filtered = before_filter - len(df)
+                    print(f"  - Filtered out {filtered} rows with empty National ID, {len(df)} rows remaining")
+                
             except Exception as e:
                 print(f"  - Error reading {sector}: {e}")
                 print(f"  - Available sheets: {xl.sheet_names}")
@@ -46,17 +61,6 @@ class RawDataProcessor:
         
         # Calculate overview metrics
         dashboard_data["overview"] = self.calculate_overview_metrics(dashboard_data["sectors"])
-        
-        # Debug total population count
-        total_pop = dashboard_data["overview"]["total_population"]
-        print(f"🔢 FINAL POPULATION COUNT: {total_pop:,} (using unique National ID counting)")
-        
-        if total_pop == 52300:
-            print("⚠️ WARNING: Still getting 52,300! Unique counting may not be working properly!")
-        elif total_pop == 52299:
-            print("✅ SUCCESS: Correct count of 52,299 achieved with unique counting!")
-        else:
-            print(f"ℹ️ INFO: Population count is {total_pop:,}")
         
         # Save processed data in root directory (no separate data folder)
         with open('dashboard_data.json', 'w', encoding='utf-8') as f:
@@ -82,56 +86,23 @@ class RawDataProcessor:
             if pd.isna(phc_name) or phc_name == '':
                 continue
                 
-            # Calculate metrics for this PHC using corrected unique counting
-            # Strategy: Remove duplicates by National ID, treat empty/null as separate unique records
+            # Calculate metrics for this PHC
+            total_population = len(group)
             
-            # For rows with valid National IDs, keep only unique ones
-            valid_id_rows = group[group['National ID'].notna()]
-            unique_valid_rows = valid_id_rows.drop_duplicates(subset=['National ID']) if not valid_id_rows.empty else pd.DataFrame()
+            # Communication metrics
+            communicated = len(group[group['Response'].notna()])
+            accepted = len(group[group['Response'] == 'Accepted'])
+            refused = len(group[group['Response'] == 'Refused'])
+            wrong_number = len(group[group['Response'] == 'Wrong number'])
+            no_response = len(group[group['Response'] == 'No response'])
             
-            # For rows with null/empty National IDs, keep all (assume each is unique person)
-            null_id_rows = group[group['National ID'].isna()]
+            # Visit types
+            in_person_visits = len(group[group['Scheduled'] == 'In-Person'])
+            virtual_visits = len(group[group['Scheduled'] == 'Virtual'])
             
-            # Total unique population = unique valid ID rows + all null ID rows
-            total_population = len(unique_valid_rows) + len(null_id_rows)
-            
-            # Debug logging for counting verification
-            total_rows = len(group)
-            valid_unique = len(unique_valid_rows)
-            null_count = len(null_id_rows)
-            
-            if total_rows != total_population:
-                valid_duplicates = len(valid_id_rows) - valid_unique
-                print(f"🔍 PHC {phc_name} - Rows: {total_rows}, Valid unique: {valid_unique}, Null: {null_count}, Final: {total_population}")
-                if valid_duplicates > 0:
-                    print(f"   🔄 Removed {valid_duplicates} duplicate National IDs")
-            else:
-                print(f"✅ PHC {phc_name} - Perfect count: {total_population}")
-            
-            # Communication metrics - using consistent unique counting strategy
-            def count_unique_with_nulls(subset_df):
-                """Count unique people using same strategy as total population"""
-                if subset_df.empty:
-                    return 0
-                # Split by valid vs null National IDs
-                valid_ids = subset_df.dropna(subset=['National ID'])
-                null_ids = subset_df[subset_df['National ID'].isna() | (subset_df['National ID'] == '')]
-                # Unique valid IDs + all null IDs (each null assumed unique)
-                return len(valid_ids.drop_duplicates(subset=['National ID'])) + len(null_ids)
-            
-            communicated = count_unique_with_nulls(group[group['Response'].notna()])
-            accepted = count_unique_with_nulls(group[group['Response'] == 'Accepted'])
-            refused = count_unique_with_nulls(group[group['Response'] == 'Refused'])
-            wrong_number = count_unique_with_nulls(group[group['Response'] == 'Wrong number'])
-            no_response = count_unique_with_nulls(group[group['Response'] == 'No response'])
-            
-            # Visit types - using consistent unique counting
-            in_person_visits = count_unique_with_nulls(group[group['Scheduled'] == 'In-Person'])
-            virtual_visits = count_unique_with_nulls(group[group['Scheduled'] == 'Virtual'])
-            
-            # Arrival and enrollment - using consistent unique counting
-            arrived = count_unique_with_nulls(group[group['Arrived'] == 'Yes'])
-            enrolled = count_unique_with_nulls(group[group['Enrollment'] == 'Yes'])
+            # Arrival and enrollment
+            arrived = len(group[group['Arrived'] == 'Yes'])
+            enrolled = len(group[group['Enrollment'] == 'Yes'])
             
             phc_data = {
                 "phc_name": phc_name,

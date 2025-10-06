@@ -1292,14 +1292,15 @@ def start_dashboard_server(port=8000):
         # Start configurable auto-refresh system
         global auto_refresh_settings
         if auto_refresh_settings["enabled"]:
+            initial_interval = auto_refresh_settings.get("simple_interval_minutes", 120)
             auto_refresh_settings["stop_event"] = threading.Event()
             auto_refresh_settings["thread"] = threading.Thread(
                 target=auto_refresh_data_with_settings, 
-                args=(auto_refresh_settings["stop_event"], auto_refresh_settings["interval_minutes"]),
+                args=(auto_refresh_settings["stop_event"], initial_interval),
                 daemon=True
             )
             auto_refresh_settings["thread"].start()
-            print(f"🔄 Auto-refresh started - will sync OneDrive data every {auto_refresh_settings['interval_minutes']} minutes")
+            print(f"🔄 Auto-refresh started - will sync OneDrive data every {initial_interval} minutes")
         else:
             print("⏸️ Auto-refresh disabled - can be enabled from admin panel")
         
